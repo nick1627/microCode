@@ -32,40 +32,4 @@ setup:	bcf	CFGS	; point to Flash program memory
 	goto	start
 	
 	; ******* Main programme ****************************************
-start: 	lfsr	0, myArray	; Load FSR0 with address in RAM	
-	movlw	low highword(myTable)	; address of data in PM
-	movwf	TBLPTRU, A		; load upper bits to TBLPTRU
-	movlw	high(myTable)	; address of data in PM
-	movwf	TBLPTRH, A		; load high byte to TBLPTRH
-	movlw	low(myTable)	; address of data in PM
-	movwf	TBLPTRL, A		; load low byte to TBLPTRL
-	movlw	myTable_l	; bytes to read
-	movwf 	counter, A		; our counter register
-loop: 	tblrd*+			; one byte from PM to TABLAT, increment TBLPRT
-	movff	TABLAT, POSTINC0; move data from TABLAT to (FSR0), inc FSR0	
-	decfsz	counter, A		; count down to zero
-	bra	loop		; keep going until finished
-		
-	movlw	myTable_l	; output message to UART
-	lfsr	2, myArray
-	call	UART_Transmit_Message
-
-	movlw	myTable_l-1	; output message to LCD
-				; don't send the final carriage return to LCD
-	lfsr	2, myArray
-	call	LCD_Write_Message
-	
-measure_loop:
-	call	ADC_Read
-	movf	ADRESH, W, A
-	call	LCD_Write_Hex
-	movf	ADRESL, W, A
-	call	LCD_Write_Hex
-	goto	measure_loop		; goto current line in code
-	
-	; a delay subroutine if you need one, times around loop in delay_count
-delay:	decfsz	delay_count, A	; decrement until zero
-	bra	delay
-	return
-
-	end	rst
+start: 
