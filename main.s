@@ -5,15 +5,15 @@ extrn	keyPress, keypadSetup
     
    
 psect	udata_acs   ; reserve data space in access ram
-storedKey:  ds 6    ; reserve 6 bytes for 6 digit stored keycode
-givenKey:   ds 6    ; reserve 6 bytes for inputted 6 digits stored keycode
+storedKey:  ds 4    ; reserve 4 bytes for 4 digit stored keycode
+givenKey:   ds 4    ; reserve 4 bytes for inputted 4 digits stored keycode
 
 psect	code, abs	
-init: 	org 0x00
+init: 	org	0x00
  	goto	setup
 
 intHigh:	
-	org 0x0008		; high interrupt triggered by keypad input
+	org	 0x0008		; high interrupt triggered by keypad input
 	goto	 keyPress	; store keypad input
 
 ;=======Setup I/O===============================================================
