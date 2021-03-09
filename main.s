@@ -1,35 +1,43 @@
 #include <xc.inc>
 
-extrn	UART_Setup, UART_Transmit_Message  ; external uart subroutines
-extrn	LCD_Setup, LCD_Write_Message, LCD_Write_Hex ; external LCD subroutines
-extrn	ADC_Setup, ADC_Read		   ; external ADC subroutines
-	
+extrn	LCDSetup, LCD_Write_Message, LCD_Write_Hex ; external LCD subroutines
+extrn	keyPress, keypadSetup
+    
+   
 psect	udata_acs   ; reserve data space in access ram
-counter:    ds 1    ; reserve one byte for a counter variable
-delay_count:ds 1    ; reserve one byte for counter in the delay routine
-    
-psect	udata_bank4 ; reserve data anywhere in RAM (here at 0x400)
-myArray:    ds 0x80 ; reserve 128 bytes for message data
+storedKey:  ds 6    ; reserve 6 bytes for 6 digit stored keycode
+givenKey:   ds 6    ; reserve 6 bytes for inputted 6 digits stored keycode
 
-psect	data    
-	; ******* myTable, data in programme memory, and its length *****
-myTable:
-	db	'H','e','l','l','o',' ','W','o','r','l','d','!',0x0a
-					; message, plus carriage return
-	myTable_l   EQU	13	; length of data
-	align	2
-    
 psect	code, abs	
-rst: 	org 0x0
+init: 	org 0x00
  	goto	setup
 
-	; ******* Programme FLASH read Setup Code ***********************
-setup:	bcf	CFGS	; point to Flash program memory  
-	bsf	EEPGD 	; access Flash program memory
-	call	UART_Setup	; setup UART
-	call	LCD_Setup	; setup UART
-	call	ADC_Setup	; setup ADC
+intHigh:	
+	org 0x0008		; high interrupt triggered by keypad input
+	goto	 keyPress	; store keypad input
+
+;=======Setup I/O===============================================================
+
+setup:	bcf	CFGS	        ; point to Flash program memory  
+	bsf	EEPGD		; access Flash program memory
+	
+	call	LCDSetup	; setup LCD
+	call	keypadSetup	; setup keypad
+	
+	clrf	TRISC, A	; port-C as output for lock/unlock
+	clrf	TRISD, A	; port-D as output for LEDs
+	
 	goto	start
 	
-	; ******* Main programme ****************************************
+;=======Main Programme==========================================================
+
 start: 
+	; default 
+	; display "Please enter passcode" or something 
+	goto	$
+	
+compareKey: 
+	; after 6 digits entered it will come here via goto 
+	; if wrong display error message and goto start
+	
+    end	init
