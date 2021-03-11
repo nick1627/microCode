@@ -21,7 +21,7 @@ intHigh:
 setup:	bcf	CFGS	        ; point to Flash program memory  
 	bsf	EEPGD		; access Flash program memory
 	
-;	call	LCDSetup	; setup LCD
+	call	LCDSetup	; setup LCD
 	call	keypadSetup	; setup keypad
 	
 	clrf	TRISC, A	; port-C as output for lock/unlock
@@ -35,8 +35,7 @@ setup:	bcf	CFGS	        ; point to Flash program memory
 start: 
 	; default 
 	; display "Please enter passcode" or something 
-	call	intKey
-	goto	start
+	goto	$
 	
 compareKey: 
 	; after 6 digits entered it will come here via goto 
