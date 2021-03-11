@@ -1,17 +1,17 @@
 #include <xc.inc>
 
-extrn	LCDSetup, LCD_Write_Message, LCD_Write_Hex ; external LCD subroutines
-extrn	keyPress, keypadSetup
+;extrn	LCDSetup, LCD_Write_Message, LCD_Write_Hex ; external LCD subroutines
+;extrn	keyPress, keypadSetup
     
    
 psect	udata_acs   ; reserve data space in access ram
 storedKey:	ds 4    ; reserve 4 bytes for 4 digit stored keycode
 givenKey:	ds 4    ; reserve 4 bytes for inputted 4 digits stored keycode
 codeCounter:	ds 1	; reserve 1 byte to store length of inputted code
-attemptTimerHigh:	ds 1	; reserve 1 byte for the timer.  It is likely this 
-			; will have to be increased to accomodate a time that
-			; is suitable for human timescales
+attemptTimerHigh:	ds 1	; reserve 2 bytes for the timer.
 attemptTimerLow:	ds 1
+timerFinished:	ds 1	; reserve 1 byte to indicate whether the timer has finished
+			; i.e. has reached 0
 			
 
 			
@@ -20,9 +20,9 @@ psect	code, abs
 init: 	org	0x00
  	goto	setup
 
-intHigh:	
-	org	0x0008		; high priority interrupt triggered by keypad input
-	goto	keyPress	; store keypad input
+;intHigh:	
+;	org	0x0008		; high priority interrupt triggered by keypad input
+;	goto	keyPress	; store keypad input
 
 ;=======Setup I/O===============================================================
 
@@ -31,8 +31,8 @@ setup:
 	bcf	CFGS	        ; point to Flash program memory  
 	bsf	EEPGD		; access Flash program memory
 	
-	call	LCDSetup	; setup LCD
-	call	keypadSetup	; setup keypad
+	;call	LCDSetup	; setup LCD
+	;call	keypadSetup	; setup keypad
 	
 	clrf	TRISC, A	; port-C as output for lock/unlock
 	clrf	TRISD, A	; port-D as output for LEDs
@@ -51,22 +51,27 @@ start:
 	; display "Please enter passcode" or something 
 	goto	mainLoop
 	
+	; debug section
+
+	
+
+	
+	
+	
 mainLoop:
 	;check code counter
 	;if code counter = 4, do the code checking sequence
 	movlw	0x04
-	cpfslt	codeCounter
+	cpfslt	codeCounter, A
 	;4 digits have been entered, so we do the next line
 	goto	checkCode
 	;4 digits have not been entered, so we do the next line
 	movlw	0x00
 	; check to see if the attempt timer has run out
-	cpfsgt	attemptTimer
+	cpfseq	timerFinished, A
 	; the code counter is reset if the timer has run out.
 	call	resetCodeCounter
-	; now we decrement the timer if the contents of the timer 
-	; are greater than 0
-	cpfslt	attemptTimer
+	; now we decrement the timer if the timer has not run out.
 	call	decrementAttemptTimer
 	;now loop back to the beginning
 	goto	mainLoop
@@ -80,11 +85,11 @@ compareKey:
 	; after 4 digits entered it will come here via goto 
 	; if wrong display error message and goto start
 	
-appendEnteredCode:
-    ;	Append the code that has been entered into the keypad
-    ;	assume w register contains the new code
-	movwf	givenKey + codeCounter ; how?
-	return
+;appendEnteredCode:
+;    ;	Append the code that has been entered into the keypad
+;    ;	assume w register contains the new code
+;	movwf	givenKey + codeCounter ; how?
+;	return
 
 resetCodeCounter:
 	; reset the value of the actual counter
@@ -98,49 +103,38 @@ resetCodeCounter:
 	return
 	
 	
-; timer related code
+;; timer-related code
 resetAttemptTimer:
-	movlw	0xFF ;high(0xFFFF)
-	movwf	attemptTimerHigh, A
-	movlw	0xFF ;low(0xFFFF)
-	movwf	attemptTimerLow, A
-	
-decrementAttemptTimer:
-	movlw	0x01
-	cpfslt	attemptTimerLow, A
-	bra	timerA
-	bra	timerB
-timerA:
 	movlw	0xFF
-timerB:
-	
+	movwf	attemptTimerHigh, A
+	movlw	0xFF
+	movwf	attemptTimerLow, A
+	; the timerFinished boolean flag must be reset to 0 to indicate that
+	; the timer has not finished
+	movlw	0x00
+	movwf	timerFinished, A
 	return
-	
+
+decrementAttemptTimer:
+	movlw	0x00
+	cpfseq	timerFinished, A
+	return
+	; the timer has not finished, so we decrement
+	decf	attemptTimerLow, f, A
+	subwfb	attemptTimerHigh, f, A
+	; now check if the timer has reached 0
+	movlw	0x00
+	cpfseq	attemptTimerHigh, A
+	return
+	cpfseq	attemptTimerLow, A
+	return
+	movlw	0x01
+	movwf	timerFinished, A
+	return
 
 	
-    
-delay16_repeater:
-	; This calls the sixteen-bit delay FFh times.
-	movlw	0xFF
-	movwf	delay16_repeats, A
-delay16_repeater_loop:
-	call	delay16
-	decfsz	delay16_repeats, A
-	bra	delay16_repeater_loop
-	return	
 	
-delay16:
-	
-	movlw	0x00
-dloop:	
-	; decrement your way through the 16 bits
-	decf	delay16_counterLow, f, A
-	subwfb	delay16_counterHigh, f, A
-	bc	dLoop
-	return
-	
-; lock related code
-	
+; lock-related code
 lock:	; This sends the signal to lock the lock
 	movlw	0xFF
 	movwf	PORTC, A
