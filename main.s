@@ -1,7 +1,7 @@
 #include <xc.inc>
 
-extrn	LCDSetup, LCD_Write_Message, LCD_Write_Hex ; external LCD subroutines
-extrn	keyPress, keypadSetup
+;extrn	LCDSetup, LCD_Write_Message, LCD_Write_Hex ; external LCD subroutines
+extrn	intKey, keypadSetup
     
    
 psect	udata_acs   ; reserve data space in access ram
@@ -14,18 +14,19 @@ init: 	org	0x00
 
 intHigh:	
 	org	 0x0008		; high interrupt triggered by keypad input
-	goto	 keyPress	; store keypad input
+	goto	 intKey		; store keypad input
 
 ;=======Setup I/O===============================================================
 
 setup:	bcf	CFGS	        ; point to Flash program memory  
 	bsf	EEPGD		; access Flash program memory
 	
-	call	LCDSetup	; setup LCD
+;	call	LCDSetup	; setup LCD
 	call	keypadSetup	; setup keypad
 	
 	clrf	TRISC, A	; port-C as output for lock/unlock
 	clrf	TRISD, A	; port-D as output for LEDs
+	clrf	PORTD, A		; clear port-D outputs 
 	
 	goto	start
 	
@@ -34,7 +35,8 @@ setup:	bcf	CFGS	        ; point to Flash program memory
 start: 
 	; default 
 	; display "Please enter passcode" or something 
-	goto	$
+	call	intKey
+	goto	start
 	
 compareKey: 
 	; after 6 digits entered it will come here via goto 
