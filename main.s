@@ -35,7 +35,8 @@ setup:	bcf	CFGS	        ; point to Flash program memory
 start: 
 	; default 
 	; display "Please enter passcode" or something 
-	goto	$
+	call	intKey
+	goto	start
 	
 compareKey: 
 	; after 6 digits entered it will come here via goto 

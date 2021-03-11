@@ -153,3 +153,143 @@ lcdlp1:	decf 	LCD_cnt_l, F, A	; no carry when 0x00 -> 0xff
 
 
 end
+;	
+;	
+;	
+;#include <xc.inc>
+;
+;extrn	LCD_Setup, LCD_Write_Message, LCD_Clear
+;	
+;psect	udata_acs   ; reserve data space in access ram
+;counter:    ds 1    ; reserve one byte for a counter variable
+;delay_count:ds 1    ; reserve one byte for counter in the delay routine
+;delayC1:    ds 1
+;delayC2:    ds 1
+;delayC3:    ds 1
+;
+;psect	udata_bank4 ; reserve data anywhere in RAM (here at 0x400)
+;myArray:    ds 0x80 ; reserve 128 bytes for message data
+;lineSpace:  ds	24
+;portInput:  ds 1
+;
+;psect	data    
+;	; ******* myTable, data in programme memory, and its length *****
+;myTable:
+;	db	'H','e','l','l','o',' ','W','o','r','l','d','!',0x0a
+;					; message, plus carriage return
+;	myTable_l   EQU	13	; length of data
+;	align	2
+;    
+;psect	code, abs	
+;rst: 	org 0x0
+; 	goto	setup
+;
+;	; ******* Programme FLASH read Setup Code ***********************
+;setup:	bcf	CFGS	; point to Flash program memory  
+;	bsf	EEPGD 	; access Flash program memory
+;	call	UART_Setup	; setup UART
+;	call	LCD_Setup	; setup UART
+;	setf	TRISD, A
+;	goto	start
+;	
+;	; ******* Main programme ****************************************
+;start: 	lfsr	0, myArray	; Load FSR0 with address in RAM	
+;	movlw	low highword(myTable)	; address of data in PM
+;	movwf	TBLPTRU, A		; load upper bits to TBLPTRU
+;	movlw	high(myTable)	; address of data in PM
+;	movwf	TBLPTRH, A		; load high byte to TBLPTRH
+;	movlw	low(myTable)	; address of data in PM
+;	movwf	TBLPTRL, A		; load low byte to TBLPTRL
+;	movlw	myTable_l	; bytes to read
+;	movwf 	counter, A		; our counter register
+;loop: 	tblrd*+			; one byte from PM to TABLAT, increment TBLPRT
+;	movff	TABLAT, POSTINC0; move data from TABLAT to (FSR0), inc FSR0	
+;	decfsz	counter, A		; count down to zero
+;	bra	loop		; keep going until finished
+;		
+;	movlw	myTable_l	; output message to UART
+;	lfsr	2, myArray
+;	call	UART_Transmit_Message
+;
+;	movlw	myTable_l	; output message to LCD
+;	addlw	0xff		; don't send the final carriage return to LCD
+;	lfsr	2, myArray
+;	call	LCD_Write_Message
+;	movlw	0x44
+;	call	bigDelay
+;	call	LCD_Clear
+;	; call	flash 
+;	;call	portWrite
+;	call	secondLine
+;	
+;	goto	$		; goto current line in code
+;
+;secondLine: 
+;    	lfsr	2, lineSpace
+;	movlw	40		; put 40 ' ' in memory 
+;	movwf	counter, A
+;loops:	movlw	' '
+;	movwf	POSTINC2
+;	decfsz	counter, A
+;	bra	loops
+;	movlw	40	    	; output large space to LCD
+;	lfsr	2, lineSpace
+;	call	LCD_Write_Message
+;	
+;	movlw	myTable_l	; output text to LCD after space
+;	addlw	0xff		; don't send the final carriage return to LCD
+;	lfsr	2, myArray
+;	call	LCD_Write_Message   ; text pushed to second row
+;
+;	return 
+;	
+;portWrite: 
+;	;call	LCD_Clear 
+;	movff	PORTD, portInput
+;	movlw	1	; output message to LCD
+;	lfsr	2, portInput
+;	call	LCD_Write_Message
+;	movlw	0x33
+;	call	bigDelay
+;	bra	portWrite
+;	return 
+;
+;flash:  ; Subroutine that makes text flash 
+;	movlw	0xff		; repeats 256 times
+;	movwf	counter, A
+;fLoop: 
+;	call	LCD_Clear	; clear display
+;	movlw	0x33
+;	call	bigDelay	; wait
+;	movlw	myTable_l	; output message to LCD
+;	addlw	0xff		; don't send the final carriage return to LCD
+;	lfsr	2, myArray
+;	call	LCD_Write_Message   ; write message
+;	movlw	0x33
+;	call	bigDelay	; wait
+;	decfsz	counter, A
+;	bra	fLoop
+;	return
+;	
+;	; a delay subroutine if you need one, times around loop in delay_count
+;delay:	decfsz	delay_count, A	; decrement until zero
+;	bra	delay
+;	return
+;
+;bigDelay: ; delay subroutine changing length with w
+;	movwf	delayC1, A
+;	movwf	delayC2, A
+;	movwf	delayC3, A
+;delay1: call	delay2
+;	decfsz	delayC1, A
+;	bra	delay1
+;	return 
+;delay2: call	delay3
+;	decfsz	delayC2, A
+;	bra	delay2
+;	return 
+;delay3: decfsz	delayC3, A
+;	bra	delay3
+;	return 
+;
+;	end	rst
