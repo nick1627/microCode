@@ -1,23 +1,33 @@
 #include <xc.inc>
 
-global  LCD_Setup, LCD_Write_Message, LCD_Write_Hex
+global  LCDSetup, LCDWrite
 
 psect	udata_acs   ; named variables in access ram
 LCD_cnt_l:	ds 1	; reserve 1 byte for variable LCD_cnt_l
 LCD_cnt_h:	ds 1	; reserve 1 byte for variable LCD_cnt_h
 LCD_cnt_ms:	ds 1	; reserve 1 byte for ms counter
 LCD_tmp:	ds 1	; reserve 1 byte for temporary use
-LCD_counter:	ds 1	; reserve 1 byte for counting through nessage
+LCDcounter:	ds 1	; reserve 1 byte for counting through message
+;myMessage:	ds 1
+myMessageL:	ds 1
+    
 
-PSECT	udata_acs_ovr,space=1,ovrld,class=COMRAM
+psect	udata_acs_ovr,space=1,ovrld,class=COMRAM
 LCD_hex_tmp:	ds 1    ; reserve 1 byte for variable LCD_hex_tmp
 
 	LCD_E	EQU 5	; LCD enable bit
     	LCD_RS	EQU 4	; LCD register select bit
 
-psect	lcd_code,class=CODE
-    
-LCD_Setup:
+psect	data		; Message Tables
+myMessage: 
+	db	'H','e','l','l','o',' ','W','o','r','l','d','!'
+	l1   EQU 13	; length of data
+	align	2
+
+	psect	LCDcode,class=CODE
+
+;=======LCD Setup===============================================================
+LCDSetup:
 	clrf    LATB, A
 	movlw   11000000B	    ; RB0:5 all outputs
 	movwf	TRISB, A
@@ -49,30 +59,43 @@ LCD_Setup:
 	call	LCD_delay_x4us
 	return
 
-LCD_Write_Hex:			; Writes byte stored in W as hex
-	movwf	LCD_hex_tmp, A
-	swapf	LCD_hex_tmp, W, A	; high nibble first
-	call	LCD_Hex_Nib
-	movf	LCD_hex_tmp, W, A	; then low nibble
-LCD_Hex_Nib:			; writes low nibble as hex character
-	andlw	0x0F
-	movwf	LCD_tmp, A
-	movlw	0x0A
-	cpfslt	LCD_tmp, A
-	addlw	0x07		; number is greater than 9 
-	addlw	0x26
-	addwf	LCD_tmp, W, A
-	call	LCD_Send_Byte_D ; write out ascii
-	return	
+;=======LCD Menu================================================================
+LCDWrite:
+	; Writes message denoted by number option stored in W
+;	movff	welcome, myMessage
+	movff	l1, myMessageL
+	call	LCDWriteTxt
+	return 
+
+;=======Main Programme==========================================================
 	
-LCD_Write_Message:	    ; Message stored at FSR2, length stored in W
-	movwf   LCD_counter, A
-LCD_Loop_message:
+LCDWriteTxt:	    
+	; Message stored in PM myMessage with length myMessageL
+	call	loadMessage		    ; load message in myMessage
+	movff	myMessageL, LCDcounter, A   ; bytes to write
+writeLp:
 	movf    POSTINC2, W, A
-	call    LCD_Send_Byte_D
-	decfsz  LCD_counter, A
-	bra	LCD_Loop_message
+	call    LCDDataSend		    ; Send byte in W
+	decfsz  LCDcounter, A
+	bra	writeLp
 	return
+	
+loadMessage:
+	; Load message array in PM (loc in FSR2) to FSR2
+	movlw	low highword(myMessage)	    ; address of data in PM
+	movwf	TBLPTRU, A		    ; load upper bits to TBLPTRU
+	movlw	high(myMessage)		    ; address of data in PM
+	movwf	TBLPTRH, A		    ; load high byte to TBLPTRH
+	movlw	low(myMessage)		    ; address of data in PM
+	movwf	TBLPTRL, A		    ; load low byte to TBLPTRL
+	movff	myMessageL, LCDcounter, A   ; bytes to read
+	lfsr	2, myMessage
+loadLp: 
+	tblrd*+				; 1-byte from PM to TABLAT, inc TBLPRT
+	movff	TABLAT, POSTINC2	; 1-byte from TABLAT to FSR2, inc FSR2	
+	decfsz	LCDcounter, A
+	bra	loadLp
+	return 
 
 LCD_Send_Byte_I:	    ; Transmits byte stored in W to instruction reg
 	movwf   LCD_tmp, A
@@ -88,7 +111,8 @@ LCD_Send_Byte_I:	    ; Transmits byte stored in W to instruction reg
         call    LCD_Enable  ; Pulse enable Bit 
 	return
 
-LCD_Send_Byte_D:	    ; Transmits byte stored in W to data reg
+LCDDataSend:	   
+	; Transmits byte stored in W to data reg
 	movwf   LCD_tmp, A
 	swapf   LCD_tmp, W, A	; swap nibbles, high nibble goes first
 	andlw   0x0f	    ; select just low nibble
@@ -103,8 +127,9 @@ LCD_Send_Byte_D:	    ; Transmits byte stored in W to data reg
 	movlw	10	    ; delay 40us
 	call	LCD_delay_x4us
 	return
-
-LCD_Enable:	    ; pulse enable bit LCD_E for 500ns
+	
+LCD_Enable:	    
+	; Pulse enable bit LCD_E for 500ns
 	nop
 	nop
 	nop
@@ -151,5 +176,22 @@ lcdlp1:	decf 	LCD_cnt_l, F, A	; no carry when 0x00 -> 0xff
 	bc 	lcdlp1		; carry, then loop again
 	return			; carry reset so return
 
+	
+;LCD_Write_Hex:			; Writes byte stored in W as hex
+;	movwf	LCD_hex_tmp, A
+;	swapf	LCD_hex_tmp, W, A	; high nibble first
+;	call	LCD_Hex_Nib
+;	movf	LCD_hex_tmp, W, A	; then low nibble
+;LCD_Hex_Nib:			; writes low nibble as hex character
+;	andlw	0x0F
+;	movwf	LCD_tmp, A
+;	movlw	0x0A
+;	cpfslt	LCD_tmp, A
+;	addlw	0x07		; number is greater than 9 
+;	addlw	0x26
+;	addwf	LCD_tmp, W, A
+;	call	LCD_Send_Byte_D ; write out ascii
+;	return	
+;	
 
 end
