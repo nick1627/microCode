@@ -5,13 +5,13 @@
     
    
 psect	udata_acs   ; reserve data space in access ram
-storedKey:	ds 4    ; reserve 4 bytes for 4 digit stored keycode
-givenKey:	ds 4    ; reserve 4 bytes for inputted 4 digits stored keycode
-codeCounter:	ds 1	; reserve 1 byte to store length of inputted code
+storedKey:		ds 4    ; reserve 4 bytes for 4 digit stored keycode
+inputKey:		ds 4    ; reserve 4 bytes for inputted 4 digits stored keycode
+codeCounter:		ds 1	; reserve 1 byte to store length of inputted code
 attemptTimerHigh:	ds 1	; reserve 2 bytes for the timer.
 attemptTimerLow:	ds 1
-timerFinished:	ds 1	; reserve 1 byte to indicate whether the timer has finished
-			; i.e. has reached 0
+timerFinished:		ds 1	; reserve 1 byte to indicate whether the timer has finished
+				; i.e. has reached 0
 			
 
 			
@@ -42,6 +42,11 @@ setup:
 	movlw	0x00
 	movwf	codeCounter, A
 	
+	codeLength EQU 0x04
+ 
+	lfsr	0, inputKey	; will use FSR0 with inputKey
+	lfsr	1, storedKey	; will use FSR1 with storedKey
+	
 	goto	start
 	
 ;=======Main Programme==========================================================
@@ -61,49 +66,72 @@ start:
 mainLoop:
 	;check code counter
 	;if code counter = 4, do the code checking sequence
-	movlw	0x04
+	movlw	codeLength
 	cpfslt	codeCounter, A
 	;4 digits have been entered, so we do the next line
-	goto	checkCode
+	goto	checkEnteredCode
 	;4 digits have not been entered, so we do the next line
 	movlw	0x00
 	; check to see if the attempt timer has run out
 	cpfseq	timerFinished, A
-	; the code counter is reset if the timer has run out.
-	call	resetCodeCounter
-	; now we decrement the timer if the timer has not run out.
+	; the entered code is reset if the timer has run out.
+	call	resetEnteredCode
+	; now we decrement the timer (if the timer has not run out).
 	call	decrementAttemptTimer
 	;now loop back to the beginning
 	goto	mainLoop
 	
 	
-checkCode:
+; code related to entered passcode
+checkEnteredCode:
 	; At this point, 4 digits of the code have been entered.
 	; We must now check to see if they are the correct values
-	
-compareKey: 
-	; after 4 digits entered it will come here via goto 
-	; if wrong display error message and goto start
-	
-;appendEnteredCode:
-;    ;	Append the code that has been entered into the keypad
-;    ;	assume w register contains the new code
-;	movwf	givenKey + codeCounter ; how?
-;	return
+	movlw	0x00
+	movwf	codeCounter
+checkEnteredCode_loop:
+	movff	POSTINC0, W
+	cpfseq	POSTINC1
+	bra	codeIncorrect
+	incf	codeCounter, A
+	movlw	codeLength
+	cpfseq	codeCounter, A
+	bra	checkEnteredCode_loop
+codeCorrect:
+	call	unlock
+	return
+codeIncorrect:
+	; the entered code is incorrect
+	; ensure lock is locked
+	call	lock
+	return
 
+	
+appendEnteredCode:
+	;Append the code that has been entered into the keypad
+	;assume w register contains the new code
+	movwf	POSTINC0
+	return
+
+resetEnteredCode:
+	call	resetCodeCounter
+	; FSR0 is used to store the value of the desired memory location
+	; for the input digits, and should be reset to the first location 
+	; now
+	lfsr	0, inputKey
+	return
+
+incrementCodeCounter:
+	incf	codeCounter, A
+	return	
+	
 resetCodeCounter:
 	; reset the value of the actual counter
 	movlw	0x00
 	movwf	codeCounter
-	; FSR0 is used to store the value of the desired memory location
-	; for the input digits, and should be reset to the first location 
-	; now
-	lfsr	0, givenKey
 	
 	return
 	
-	
-;; timer-related code
+; timer-related code
 resetAttemptTimer:
 	movlw	0xFF
 	movwf	attemptTimerHigh, A
@@ -145,4 +173,4 @@ unlock:	; This sends the signal to unlock the lock
 	movwf	PORTC, A
 	return
     
-    end	init
+	end	init
