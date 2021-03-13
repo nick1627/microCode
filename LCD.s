@@ -23,7 +23,7 @@ myArray:	ds twoLine  ; reserve 56 bytes (length of 2 lines) for message
 ;	
 
 psect	data		; Message Tables
-myMessage:	ds twoLine
+myMessage:	ds 2
 
 secondLine: 
 	db	' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
@@ -56,31 +56,31 @@ LCDSetup:
 	movlw   11000000B	; RB0:5 all outputs
 	movwf	TRISB, A
 	movlw   40
-	call	LCD_delay_ms	; wait 40ms for LCD to start up properly
+	call	LCDDelayMs	; wait 40ms for LCD to start up properly
 	movlw	00110000B	; Function set 4-bit
-	call	LCD_Send_Byte_I
+	call	LCDInstructionSend
 	movlw	10		; wait 40us
-	call	LCD_delay_x4us
+	call	LCDDelayX4us
 	movlw	00101000B	; 2 line display 5x8 dot characters
-	call	LCD_Send_Byte_I
+	call	LCDInstructionSend
 	movlw	10		; wait 40us
-	call	LCD_delay_x4us
+	call	LCDDelayX4us
 	movlw	00101000B	; repeat, 2 line display 5x8 dot characters
-	call	LCD_Send_Byte_I
+	call	LCDInstructionSend
 	movlw	10		; wait 40us
-	call	LCD_delay_x4us
+	call	LCDDelayX4us
 	movlw	00001111B	; display on, cursor on, blinking on
-	call	LCD_Send_Byte_I
+	call	LCDInstructionSend
 	movlw	10		; wait 40us
-	call	LCD_delay_x4us
+	call	LCDDelayX4us
 	movlw	00000001B	; display clear
-	call	LCD_Send_Byte_I
+	call	LCDInstructionSend
 	movlw	2		; wait 2ms
-	call	LCD_delay_ms
+	call	LCDDelayMs
 	movlw	00000110B	; entry mode incr by 1 no shift
-	call	LCD_Send_Byte_I
+	call	LCDInstructionSend
 	movlw	10		; wait 40us
-	call	LCD_delay_x4us
+	call	LCDDelayX4us
 	return
 
 ;=======LCD Menu================================================================
@@ -89,13 +89,13 @@ LCDWrite:
 	movwf	messageSel, A	    ; Move option in W to messageSel	
 	movlw	0		    ; Code for initialisation message
 	cpfseq	messageSel, A		     
-	goto	$ + 5		    ; If different, skip to next check 
+	goto	next;$ + 5		    ; If different, skip to next check 
 ;	#define myMessage helloM
 	movff	helloM, myMessage
 	call	LCDWriteTxt
 	return 
 
-	movlw	1		    ; Code for enter code message
+next:	movlw	1		    ; Code for enter code message
 	cpfseq	messageSel, A		     
 	goto	$ + 5		    ; If different, skip to next check 
 	#define myMessage enterCodeM
@@ -141,9 +141,9 @@ writeMessage:
 LCDClear:
 	; Clears the LCD Screen 
 	movlw	00000001B		    ; clear display instruction
-	call	LCD_Send_Byte_I
+	call	LCDInstructionSend
 	movlw	2			    ; wair 2ms
-	call LCD_delay_ms
+	call LCDDelayMs
 	return 
 
 ;secondLine: 
@@ -177,18 +177,18 @@ LCDClear:
 ;	bra	fLoop
 ;	return
 	
-LCD_Send_Byte_I:	    ; Transmits byte stored in W to instruction reg
+LCDInstructionSend:	    ; Transmits byte stored in W to instruction reg
 	movwf   LCD_tmp, A
 	swapf   LCD_tmp, W, A   ; swap nibbles, high nibble goes first
 	andlw   0x0f	    ; select just low nibble
 	movwf   LATB, A	    ; output data bits to LCD
 	bcf	LATB, LCD_RS, A	; Instruction write clear RS bit
-	call    LCD_Enable  ; Pulse enable Bit 
+	call    LCDEnable  ; Pulse enable Bit 
 	movf	LCD_tmp, W, A   ; swap nibbles, now do low nibble
 	andlw   0x0f	    ; select just low nibble
 	movwf   LATB, A	    ; output data bits to LCD
 	bcf	LATB, LCD_RS, A	; Instruction write clear RS bit
-        call    LCD_Enable  ; Pulse enable Bit 
+        call    LCDEnable  ; Pulse enable Bit 
 	return
 
 LCDDataSend:	   
@@ -198,17 +198,17 @@ LCDDataSend:
 	andlw   0x0f	    ; select just low nibble
 	movwf   LATB, A	    ; output data bits to LCD
 	bsf	LATB, LCD_RS, A	; Data write set RS bit
-	call    LCD_Enable  ; Pulse enable Bit 
+	call    LCDEnable  ; Pulse enable Bit 
 	movf	LCD_tmp, W, A	; swap nibbles, now do low nibble
 	andlw   0x0f	    ; select just low nibble
 	movwf   LATB, A	    ; output data bits to LCD
 	bsf	LATB, LCD_RS, A	; Data write set RS bit	    
-        call    LCD_Enable  ; Pulse enable Bit 
+        call    LCDEnable  ; Pulse enable Bit 
 	movlw	10	    ; delay 40us
-	call	LCD_delay_x4us
+	call	LCDDelayX4us
 	return
 	
-LCD_Enable:	    
+LCDEnable:	    
 	; Pulse enable bit LCD_E for 500ns
 	nop
 	nop
@@ -230,15 +230,15 @@ LCD_Enable:
 	return
     
 ; ** a few delay routines below here as LCD timing can be quite critical ****
-LCD_delay_ms:		    ; delay given in ms in W
+LCDDelayMs:		    ; delay given in ms in W
 	movwf	LCD_cnt_ms, A
 lcdlp2:	movlw	250	    ; 1 ms delay
-	call	LCD_delay_x4us	
+	call	LCDDelayX4us	
 	decfsz	LCD_cnt_ms, A
 	bra	lcdlp2
 	return
     
-LCD_delay_x4us:		    ; delay given in chunks of 4 microsecond in W
+LCDDelayX4us:		    ; delay given in chunks of 4 microsecond in W
 	movwf	LCD_cnt_l, A	; now need to multiply by 16
 	swapf   LCD_cnt_l, F, A	; swap nibbles
 	movlw	0x0f	    
@@ -246,10 +246,10 @@ LCD_delay_x4us:		    ; delay given in chunks of 4 microsecond in W
 	movwf	LCD_cnt_h, A	; then to LCD_cnt_h
 	movlw	0xf0	    
 	andwf	LCD_cnt_l, F, A ; keep high nibble in LCD_cnt_l
-	call	LCD_delay
+	call	LCDDelay
 	return
 
-LCD_delay:			; delay routine	4 instruction loop == 250ns	    
+LCDDelay:			; delay routine	4 instruction loop == 250ns	    
 	movlw 	0x00		; W=0
 lcdlp1:	decf 	LCD_cnt_l, F, A	; no carry when 0x00 -> 0xff
 	subwfb 	LCD_cnt_h, F, A	; no carry when 0x00 -> 0xff
