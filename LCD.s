@@ -10,26 +10,31 @@ LCD_tmp:	ds 1	; reserve 1 byte for temporary use
 LCDcounter:	ds 1	; reserve 1 byte for counting through message
 ;myMessage:	ds 1
 myMessageL:	ds 1
+
+LCD_E	EQU 5	; LCD enable bit
+LCD_RS	EQU 4	; LCD register select bi
+	
+psect	udata_bank4 ; 
+myArray:	ds 12
     
-
-psect	udata_acs_ovr,space=1,ovrld,class=COMRAM
-LCD_hex_tmp:	ds 1    ; reserve 1 byte for variable LCD_hex_tmp
-
-	LCD_E	EQU 5	; LCD enable bit
-    	LCD_RS	EQU 4	; LCD register select bit
+;psect	udata_acs_ovr,space=1,ovrld,class=COMRAM
+;LCD_hex_tmp:	ds 1    ; reserve 1 byte for variable LCD_hex_tmp
+;
+;	
 
 psect	data		; Message Tables
 myMessage: 
 	db	'H','e','l','l','o',' ','W','o','r','l','d','!'
-	l1   EQU 13	; length of data
+; 	l1   EQU 13	; length of data
 	align	2
 
-	psect	LCDcode,class=CODE
+psect	LCDcode,class=CODE
 
 ;=======LCD Setup===============================================================
 LCDSetup:
+	NOP
 	clrf    LATB, A
-	movlw   11000000B	    ; RB0:5 all outputs
+	movlw   11000000B	; RB0:5 all outputs
 	movwf	TRISB, A
 	movlw   40
 	call	LCD_delay_ms	; wait 40ms for LCD to start up properly
@@ -63,7 +68,9 @@ LCDSetup:
 LCDWrite:
 	; Writes message denoted by number option stored in W
 ;	movff	welcome, myMessage
-	movff	l1, myMessageL
+	movlw	12
+	movwf	myMessageL, A
+;	movff	l1, myMessageL
 	call	LCDWriteTxt
 	return 
 
@@ -73,6 +80,7 @@ LCDWriteTxt:
 	; Message stored in PM myMessage with length myMessageL
 	call	loadMessage		    ; load message in myMessage
 	movff	myMessageL, LCDcounter, A   ; bytes to write
+	lfsr	2, myArray
 writeLp:
 	movf    POSTINC2, W, A
 	call    LCDDataSend		    ; Send byte in W
@@ -89,7 +97,7 @@ loadMessage:
 	movlw	low(myMessage)		    ; address of data in PM
 	movwf	TBLPTRL, A		    ; load low byte to TBLPTRL
 	movff	myMessageL, LCDcounter, A   ; bytes to read
-	lfsr	2, myMessage
+	lfsr	2, myArray
 loadLp: 
 	tblrd*+				; 1-byte from PM to TABLAT, inc TBLPRT
 	movff	TABLAT, POSTINC2	; 1-byte from TABLAT to FSR2, inc FSR2	
