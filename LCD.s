@@ -8,14 +8,14 @@ LCD_cnt_h:	ds 1	; reserve 1 byte for variable LCD_cnt_h
 LCD_cnt_ms:	ds 1	; reserve 1 byte for ms counter
 LCD_tmp:	ds 1	; reserve 1 byte for temporary use
 LCDcounter:	ds 1	; reserve 1 byte for counting through message
-;myMessage:	ds 1
-myMessageL:	ds 1
-
+messageSel:	ds 1	; reserve 1 byte for message option number from W
+    
 LCD_E	EQU 5	; LCD enable bit
 LCD_RS	EQU 4	; LCD register select bi
+twoLine	EQU 56	; Number of bytes in 2 lines of 2x16 message 
 	
 psect	udata_bank4 ; 
-myArray:	ds 12
+myArray:	ds twoLine  ; reserve 56 bytes (length of 2 lines) for message
     
 ;psect	udata_acs_ovr,space=1,ovrld,class=COMRAM
 ;LCD_hex_tmp:	ds 1    ; reserve 1 byte for variable LCD_hex_tmp
@@ -23,16 +23,35 @@ myArray:	ds 12
 ;	
 
 psect	data		; Message Tables
-myMessage: 
-	db	'H','e','l','l','o',' ','W','o','r','l','d','!'
-; 	l1   EQU 13	; length of data
+myMessage:	ds twoLine
+
+secondLine: 
+	db	' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
+	db	' ',' ',' ',' ',' ',' ',' ',' '
+	
+helloM: 
+	db	'-','-','K','E','Y','P','A','D',' ','L','O','C','K','-','-','-'
+	db	' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
+	db	' ',' ',' ',' ',' ',' ',' ',' '
+	db	' ','B','Y',' ','N','I','C','K',' ','&',' ','H','A','N','A',' '
+
+enterCodeM: 
+	db	'E','n','t','e','r',' ','c','o','d','e',' ','t','o',' ',' ',' '
+	db	' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
+	db	' ',' ',' ',' ',' ',' ',' ',' '
+	db	'u','n','l','o','c','k','!',' ',' ',' ',' ',' ',' ',' ',' ',' '
+
+oneKeyM: 
+	db	'E','n','t','e','r',' ','c','o','d','e',':',' ',' ',' ',' ',' '
+	db	' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
+	db	' ',' ',' ',' ',' ',' ',' ',' '
+	db	'*',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
 	align	2
 
 psect	LCDcode,class=CODE
 
 ;=======LCD Setup===============================================================
 LCDSetup:
-	NOP
 	clrf    LATB, A
 	movlw   11000000B	; RB0:5 all outputs
 	movwf	TRISB, A
@@ -67,25 +86,31 @@ LCDSetup:
 ;=======LCD Menu================================================================
 LCDWrite:
 	; Writes message denoted by number option stored in W
-;	movff	welcome, myMessage
-	movlw	12
-	movwf	myMessageL, A
-;	movff	l1, myMessageL
+	movwf	messageSel, A	    ; Move option in W to messageSel	
+	movlw	0		    ; Code for initialisation message
+	cpfseq	messageSel, A		     
+	goto	$ + 5		    ; If different, skip to next check 
+;	#define myMessage helloM
+	movff	helloM, myMessage
 	call	LCDWriteTxt
 	return 
 
+	movlw	1		    ; Code for enter code message
+	cpfseq	messageSel, A		     
+	goto	$ + 5		    ; If different, skip to next check 
+	#define myMessage enterCodeM
+	call	LCDWriteTxt
+	return
+back:	return 
+    
 ;=======Main Programme==========================================================
 	
 LCDWriteTxt:	    
-	; Message stored in PM myMessage with length myMessageL
+	; Writes message stored in myMessage with length twoLine to LCD
 	call	loadMessage		    ; load message in myMessage
-	movff	myMessageL, LCDcounter, A   ; bytes to write
+	movff	twoLine, LCDcounter, A   ; bytes to write
 	lfsr	2, myArray
-writeLp:
-	movf    POSTINC2, W, A
-	call    LCDDataSend		    ; Send byte in W
-	decfsz  LCDcounter, A
-	bra	writeLp
+	call	writeMessage
 	return
 	
 loadMessage:
@@ -96,7 +121,7 @@ loadMessage:
 	movwf	TBLPTRH, A		    ; load high byte to TBLPTRH
 	movlw	low(myMessage)		    ; address of data in PM
 	movwf	TBLPTRL, A		    ; load low byte to TBLPTRL
-	movff	myMessageL, LCDcounter, A   ; bytes to read
+	movff	twoLine, LCDcounter, A   ; bytes to read
 	lfsr	2, myArray
 loadLp: 
 	tblrd*+				; 1-byte from PM to TABLAT, inc TBLPRT
@@ -105,6 +130,53 @@ loadLp:
 	bra	loadLp
 	return 
 
+writeMessage: 
+	; Sends message stored in FSR2 with message length in LCDcounter
+	movf    POSTINC2, W, A
+	call    LCDDataSend		    ; Send byte in W
+	decfsz  LCDcounter, A
+	bra	writeMessage
+	return
+	
+LCDClear:
+	; Clears the LCD Screen 
+	movlw	00000001B		    ; clear display instruction
+	call	LCD_Send_Byte_I
+	movlw	2			    ; wair 2ms
+	call LCD_delay_ms
+	return 
+
+;secondLine: 
+;    	lfsr	2, myArray
+;	movlw	36		; put 36 ' ' in PM 
+;	movwf	LCDcounter, A
+;secondLp:	
+;	movlw	' '
+;	movwf	POSTINC2, A
+;	decfsz	LCDcounter, A
+;	bra	secondLp
+;	movlw	36	    	; output large space to LCD
+;	lfsr	2, myArray
+;	call	writeMessage
+;	return 
+;
+;flash:  ; Subroutine that makes text flash 
+;	movlw	0xff		; repeats 256 times
+;	movwf	counter, A
+;fLoop: 
+;;	call	LCD_Clear	; clear display
+;	movlw	0x33
+;	call	bigDelay	; wait
+;	movlw	myTable_l	; output message to LCD
+;	addlw	0xff		; don't send the final carriage return to LCD
+;	lfsr	2, myArray
+;	call	LCD_Write_Message   ; write message
+;	movlw	0x33
+;	call	bigDelay	; wait
+;	decfsz	counter, A
+;	bra	fLoop
+;	return
+	
 LCD_Send_Byte_I:	    ; Transmits byte stored in W to instruction reg
 	movwf   LCD_tmp, A
 	swapf   LCD_tmp, W, A   ; swap nibbles, high nibble goes first
