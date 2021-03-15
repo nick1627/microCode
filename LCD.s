@@ -9,10 +9,11 @@ LCD_cnt_ms:	ds 1	; reserve 1 byte for ms counter
 LCD_tmp:	ds 1	; reserve 1 byte for temporary use
 LCDcounter:	ds 1	; reserve 1 byte for counting through message
 messageSel:	ds 1	; reserve 1 byte for message option number from W
+myMessage:	ds 2
     
-LCD_E	EQU 5	; LCD enable bit
-LCD_RS	EQU 4	; LCD register select bi
-twoLine	EQU 56	; Number of bytes in 2 lines of 2x16 message 
+LCDE		EQU 5	; LCD enable bit
+LCDRS		EQU 4	; LCD register select bi
+twoLine		EQU 56	; Number of bytes in 2 lines of 2x16 message 
 	
 psect	udata_bank4 ; 
 myArray:	ds twoLine  ; reserve 56 bytes (length of 2 lines) for message
@@ -23,7 +24,6 @@ myArray:	ds twoLine  ; reserve 56 bytes (length of 2 lines) for message
 ;	
 
 psect	data		; Message Tables
-;myMessage:	ds 2
 
 secondLine: 
 	db	' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
@@ -87,29 +87,34 @@ LCDSetup:
 LCDWrite:
 	; Writes message denoted by number option stored in W
 	movwf	messageSel, A	    ; Move option in W to messageSel	
-	movlw	0		    ; Code for initialisation message
+	
+	movlw	0			    ; Code for initialisation message
 	cpfseq	messageSel, A		     
-	goto	next;$ + 5		    ; If different, skip to next check 
-	#define myMessage helloM
-;	movff	helloM, myMessage
+	goto	next ;$ + 5		    ; If different, skip to next check 
+	movlw	low(helloM)
+	movwf	myMessage, A
+	movlw	high(helloM)
+	movwf	myMessage+1, A
+; 	#define myMessage helloM
+; 	movff	helloM, myMessage
+	;call	LCDClear
 	call	LCDWriteTxt
 	return 
 
-next:	movlw	1		    ; Code for enter code message
+next:	movlw	1			    ; Code for enter code message
 	cpfseq	messageSel, A		     
-	goto	back;$ + 5		    ; If different, skip to next check 
-	#define myMessage enterCodeM
+	goto	back ;$ + 5		    ; If different, skip to next check 
+; 	#define myMessage enterCodeM
 	call	LCDWriteTxt
 	return
+	
 back:	return 
     
 ;=======Main Programme==========================================================
-	
 LCDWriteTxt:	    
 	; Writes message stored in myMessage with length twoLine to LCD
 	call	loadMessage		    ; load message in myMessage
-	movff	twoLine, LCDcounter, A   ; bytes to write
-	lfsr	2, myArray
+	movff	twoLine, LCDcounter, A	    ; bytes to write
 	call	writeMessage
 	return
 	
@@ -121,17 +126,17 @@ loadMessage:
 	movwf	TBLPTRH, A		    ; load high byte to TBLPTRH
 	movlw	low(myMessage)		    ; address of data in PM
 	movwf	TBLPTRL, A		    ; load low byte to TBLPTRL
-	movff	twoLine, LCDcounter, A   ; bytes to read
+	movff	twoLine, LCDcounter, A	    ; bytes to read
 	lfsr	2, myArray
-loadLp: 
-	tblrd*+				; 1-byte from PM to TABLAT, inc TBLPRT
+loadLp: tblrd*+				; 1-byte from PM to TABLAT, inc TBLPRT
 	movff	TABLAT, POSTINC2	; 1-byte from TABLAT to FSR2, inc FSR2	
 	decfsz	LCDcounter, A
 	bra	loadLp
 	return 
 
 writeMessage: 
-	; Sends message stored in FSR2 with message length in LCDcounter
+	; Sends message stored in myArray with message length in LCDcounter
+	lfsr	2, myArray
 	movf    POSTINC2, W, A
 	call    LCDDataSend		    ; Send byte in W
 	decfsz  LCDcounter, A
@@ -143,7 +148,7 @@ LCDClear:
 	movlw	00000001B		    ; clear display instruction
 	call	LCDInstructionSend
 	movlw	2			    ; wair 2ms
-	call LCDDelayMs
+	call	LCDDelayMs
 	return 
 
 ;secondLine: 
@@ -182,12 +187,12 @@ LCDInstructionSend:	    ; Transmits byte stored in W to instruction reg
 	swapf   LCD_tmp, W, A   ; swap nibbles, high nibble goes first
 	andlw   0x0f	    ; select just low nibble
 	movwf   LATB, A	    ; output data bits to LCD
-	bcf	LATB, LCD_RS, A	; Instruction write clear RS bit
+	bcf	LATB, LCDRS, A	; Instruction write clear RS bit
 	call    LCDEnable  ; Pulse enable Bit 
 	movf	LCD_tmp, W, A   ; swap nibbles, now do low nibble
 	andlw   0x0f	    ; select just low nibble
 	movwf   LATB, A	    ; output data bits to LCD
-	bcf	LATB, LCD_RS, A	; Instruction write clear RS bit
+	bcf	LATB, LCDRS, A	; Instruction write clear RS bit
         call    LCDEnable  ; Pulse enable Bit 
 	return
 
@@ -195,16 +200,16 @@ LCDDataSend:
 	; Transmits byte stored in W to data reg
 	movwf   LCD_tmp, A
 	swapf   LCD_tmp, W, A	; swap nibbles, high nibble goes first
-	andlw   0x0f	    ; select just low nibble
-	movwf   LATB, A	    ; output data bits to LCD
-	bsf	LATB, LCD_RS, A	; Data write set RS bit
-	call    LCDEnable  ; Pulse enable Bit 
+	andlw   0x0f		; select just low nibble
+	movwf   LATB, A		; output data bits to LCD
+	bsf	LATB, LCDRS, A	; Data write set RS bit
+	call    LCDEnable	; Pulse enable Bit 
 	movf	LCD_tmp, W, A	; swap nibbles, now do low nibble
-	andlw   0x0f	    ; select just low nibble
-	movwf   LATB, A	    ; output data bits to LCD
-	bsf	LATB, LCD_RS, A	; Data write set RS bit	    
-        call    LCDEnable  ; Pulse enable Bit 
-	movlw	10	    ; delay 40us
+	andlw   0x0f		; select just low nibble
+	movwf   LATB, A		; output data bits to LCD
+	bsf	LATB, LCDRS, A	; Data write set RS bit	    
+        call    LCDEnable	; Pulse enable Bit 
+	movlw	10		; delay 40us
 	call	LCDDelayX4us
 	return
 	
@@ -218,7 +223,7 @@ LCDEnable:
 	nop
 	nop
 	nop
-	bsf	LATB, LCD_E, A	    ; Take enable high
+	bsf	LATB, LCDE, A	    ; Take enable high
 	nop
 	nop
 	nop
@@ -226,7 +231,7 @@ LCDEnable:
 	nop
 	nop
 	nop
-	bcf	LATB, LCD_E, A	    ; Writes data to LCD
+	bcf	LATB, LCDE, A	    ; Writes data to LCD
 	return
     
 ; ** a few delay routines below here as LCD timing can be quite critical ****
@@ -273,5 +278,4 @@ lcdlp1:	decf 	LCD_cnt_l, F, A	; no carry when 0x00 -> 0xff
 ;	call	LCD_Send_Byte_D ; write out ascii
 ;	return	
 ;	
-
-end
+	

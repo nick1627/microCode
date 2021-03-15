@@ -13,7 +13,6 @@
                    displayName="Source Files"
                    projectFiles="true">
       <itemPath>LCD.S</itemPath>
-      <itemPath>main.s</itemPath>
       <itemPath>config.s</itemPath>
       <itemPath>/Users/hodgepodge/Documents/Imperial/Yr3/Labs/Microprocessor/microCode/microCode/keypad.s</itemPath>
     </logicalFolder>
@@ -22,6 +21,7 @@
                    projectFiles="false">
       <itemPath>Makefile</itemPath>
     </logicalFolder>
+    <itemPath>/Users/hodgepodge/Documents/Imperial/Yr3/Labs/Microprocessor/microCode/microCode/main.s</itemPath>
   </logicalFolder>
   <projectmakefile>Makefile</projectmakefile>
   <confs>
