@@ -2,29 +2,27 @@
 
 global  LCDSetup, LCDWrite
 
-psect	udata_acs   ; named variables in access ram
+psect	udata_acs  ;================named variables in access ram=
 LCD_cnt_l:	ds 1	; reserve 1 byte for variable LCD_cnt_l
 LCD_cnt_h:	ds 1	; reserve 1 byte for variable LCD_cnt_h
 LCD_cnt_ms:	ds 1	; reserve 1 byte for ms counter
 LCD_tmp:	ds 1	; reserve 1 byte for temporary use
 LCDcounter:	ds 1	; reserve 1 byte for counting through message
 messageSel:	ds 1	; reserve 1 byte for message option number from W
-myMessage:	ds 2
+;myMessage:	ds 2
     
 LCDE		EQU 5	; LCD enable bit
 LCDRS		EQU 4	; LCD register select bi
 twoLine		EQU 56	; Number of bytes in 2 lines of 2x16 message 
-	
-psect	udata_bank4 ; 
+
+psect	udata_bank4 ;=============temporary loc for messages=
 myArray:	ds twoLine  ; reserve 56 bytes (length of 2 lines) for message
     
 ;psect	udata_acs_ovr,space=1,ovrld,class=COMRAM
 ;LCD_hex_tmp:	ds 1    ; reserve 1 byte for variable LCD_hex_tmp
 ;
-;	
 
-psect	data		; Message Tables
-
+psect	data ;===================================================Message Tables=
 secondLine: 
 	db	' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
 	db	' ',' ',' ',' ',' ',' ',' ',' '
@@ -46,6 +44,12 @@ oneKeyM:
 	db	' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
 	db	' ',' ',' ',' ',' ',' ',' ',' '
 	db	'*',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
+	
+twoKeyM: 
+	db	'E','n','t','e','r',' ','c','o','d','e',':',' ',' ',' ',' ',' '
+	db	' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
+	db	' ',' ',' ',' ',' ',' ',' ',' '
+	db	'*','*',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
 	
 	align	2
 
@@ -84,18 +88,16 @@ LCDSetup:
 	return
 
 ;=======LCD Menu================================================================
-LCDWrite:
-	; Writes message denoted by number option stored in W
+LCDWrite:	; Writes message denoted by number option stored in W
 	movwf	messageSel, A	    ; Move option in W to messageSel	
-	
-	movlw	0			    ; Code for initialisation message
+	movlw	0		    ; Select initialisation message
 	cpfseq	messageSel, A		     
-	goto	next ;$ + 5		    ; If different, skip to next check 
-	movlw	low(helloM)
-	movwf	myMessage, A
-	movlw	high(helloM)
-	movwf	myMessage+1, A
-; 	#define myMessage helloM
+	goto	next ;$ + 5	    ; If different, skip to next check 
+;	movlw	low(helloM)
+;	movwf	myMessage, A
+;	movlw	high(helloM)
+;	movwf	myMessage+1, A
+ 	#define myMessage helloM
 ; 	movff	helloM, myMessage
 	;call	LCDClear
 	call	LCDWriteTxt
@@ -113,9 +115,12 @@ back:	return
 ;=======Main Programme==========================================================
 LCDWriteTxt:	    
 	; Writes message stored in myMessage with length twoLine to LCD
-	call	loadMessage		    ; load message in myMessage
-	movff	twoLine, LCDcounter, A	    ; bytes to write
-	call	writeMessage
+	call	loadMessage		    ; load message at myMessage to FSR2
+	movff	twoLine, LCDcounter, A	    ; # bytes to read
+;	movlw	myTable_l	; output message to LCD
+;	addlw	0xff		; don't send the final carriage return to LCD
+	lfsr	2, myArray
+	call	writeMessage		    ; send message to LCD
 	return
 	
 loadMessage:
@@ -133,10 +138,9 @@ loadLp: tblrd*+				; 1-byte from PM to TABLAT, inc TBLPRT
 	decfsz	LCDcounter, A
 	bra	loadLp
 	return 
-
+	
 writeMessage: 
 	; Sends message stored in myArray with message length in LCDcounter
-	lfsr	2, myArray
 	movf    POSTINC2, W, A
 	call    LCDDataSend		    ; Send byte in W
 	decfsz  LCDcounter, A
