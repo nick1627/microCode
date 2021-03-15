@@ -20,9 +20,9 @@ psect	code, abs
 init: 	org	0x00
  	goto	setup
 
-;intHigh:	
-;	org	0x0008		; high priority interrupt triggered by keypad input
-;	goto	keyPress	; store keypad input
+intHigh:	
+	org	0x0008			; high priority interrupt triggered by timer
+	goto	checkForKeyPress	; store keypad input
 
 ;=======Setup I/O===============================================================
 
@@ -36,6 +36,13 @@ setup:
 	
 	clrf	TRISC, A	; port-C as output for lock/unlock
 	clrf	TRISD, A	; port-D as output for LEDs
+	
+	; Set up the timer interrupt
+	movlw	10000111B	; configure rules for timer - CHECK THE TIMING!
+	movwf	T0CON, A
+	bsf	TMR0IE		; enable timer 0 interrupts
+	bsf	GIE		; globally enable all interrupts with high priority
+	
 	
 	; program related setup
 	; initialise contents of code counter
@@ -87,10 +94,10 @@ checkEnteredCode:
 	; At this point, 4 digits of the code have been entered.
 	; We must now check to see if they are the correct values
 	movlw	0x00
-	movwf	codeCounter
+	movwf	codeCounter, A
 checkEnteredCode_loop:
-	movff	POSTINC0, W
-	cpfseq	POSTINC1
+	movf	POSTINC0, W
+	cpfseq	POSTINC1, A
 	bra	codeIncorrect
 	incf	codeCounter, A
 	movlw	codeLength
@@ -109,7 +116,7 @@ codeIncorrect:
 appendEnteredCode:
 	;Append the code that has been entered into the keypad
 	;assume w register contains the new code
-	movwf	POSTINC0
+	movwf	POSTINC0, A
 	return
 
 resetEnteredCode:
@@ -127,7 +134,7 @@ incrementCodeCounter:
 resetCodeCounter:
 	; reset the value of the actual counter
 	movlw	0x00
-	movwf	codeCounter
+	movwf	codeCounter, A
 	
 	return
 	
@@ -172,5 +179,28 @@ unlock:	; This sends the signal to unlock the lock
 	movlw	0x00
 	movwf	PORTC, A
 	return
+	
+; code that runs on the interrupt
+checkForKeyPress:
+	; check rows and columns of keypad
+	
+	;find what key pressed, if any
+	
+	;valid key press?
+	;If no, then skip the 'yes' bit below
+	
+	;If yes, then:
+	; find new location to store the pressed key
+	; store the pressed key
+	call	appendEnteredCode ; ASSUMES NEW KEY STORED IN WREG
+	; reset timer
+	call	resetAttemptTimer
+	; increment code counter	
+	call	incrementCodeCounter
+	
+	
+	; NEED TO RESET TMR0IF TO 0, OTHERWISE INTERRUPT WILL KEEP BEING TRIGGERED
+	
+	retfie	;return from interrupt
     
 	end	init
