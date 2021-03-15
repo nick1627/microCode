@@ -23,12 +23,12 @@ myArray:	ds twoLine  ; reserve 56 bytes (length of 2 lines) for message
 ;	
 
 psect	data		; Message Tables
-myMessage:	ds 2
+;myMessage:	ds 2
 
 secondLine: 
 	db	' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
 	db	' ',' ',' ',' ',' ',' ',' ',' '
-	
+
 helloM: 
 	db	'-','-','K','E','Y','P','A','D',' ','L','O','C','K','-','-','-'
 	db	' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
@@ -46,11 +46,11 @@ oneKeyM:
 	db	' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
 	db	' ',' ',' ',' ',' ',' ',' ',' '
 	db	'*',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
+	
 	align	2
 
-psect	LCDcode,class=CODE
-
 ;=======LCD Setup===============================================================
+psect	LCDcode,class=CODE
 LCDSetup:
 	clrf    LATB, A
 	movlw   11000000B	; RB0:5 all outputs
@@ -90,14 +90,14 @@ LCDWrite:
 	movlw	0		    ; Code for initialisation message
 	cpfseq	messageSel, A		     
 	goto	next;$ + 5		    ; If different, skip to next check 
-;	#define myMessage helloM
-	movff	helloM, myMessage
+	#define myMessage helloM
+;	movff	helloM, myMessage
 	call	LCDWriteTxt
 	return 
 
 next:	movlw	1		    ; Code for enter code message
 	cpfseq	messageSel, A		     
-	goto	$ + 5		    ; If different, skip to next check 
+	goto	back;$ + 5		    ; If different, skip to next check 
 	#define myMessage enterCodeM
 	call	LCDWriteTxt
 	return
