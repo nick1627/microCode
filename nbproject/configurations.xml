@@ -15,7 +15,7 @@
       <itemPath>LCD.S</itemPath>
       <itemPath>main.s</itemPath>
       <itemPath>config.s</itemPath>
-      <itemPath>/Users/hodgepodge/Documents/Imperial/Yr3/Labs/Microprocessor/microCode/microCode/keypad.s</itemPath>
+      <itemPath>keypad.s</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
