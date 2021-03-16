@@ -2,7 +2,7 @@
 
 global  LCDSetup, LCDWrite
 
-psect	udata_acs  ;================named variables in access ram=
+psect	udata_acs;================================named variables in access ram=
 LCD_cnt_l:	ds 1	; reserve 1 byte for variable LCD_cnt_l
 LCD_cnt_h:	ds 1	; reserve 1 byte for variable LCD_cnt_h
 LCD_cnt_ms:	ds 1	; reserve 1 byte for ms counter
@@ -14,59 +14,94 @@ LCDE		EQU 5	; LCD enable bit
 LCDRS		EQU 4	; LCD register select bi
 twoLine		EQU 56	; Number of bytes in 2 lines of 2x16 message 
 
-psect	udata_bank4 ;=============temporary loc for messages=
-myArray:	ds twoLine  ; reserve 56 bytes (length of 2 lines) for message
-
-;psect	messageMem class=udata_bank5
-    
-psect	data
-	;org	0x1FC10
+psect	data;============================================message display stored=
 myMessage: 
+; 0 - initialisation
 	db	'-','-','K','E','Y','P','A','D',' ','L','O','C','K','-','-','-'
 	db	' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
 	db	' ',' ',' ',' ',' ',' ',' ',' '
 	db	' ','B','Y',' ','N','I','C','K',' ','&',' ','H','A','N','A',' '
-	
+; 1 - dormant
 	db	'E','n','t','e','r',' ','c','o','d','e',' ','t','o',' ',' ',' '
 	db	' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
 	db	' ',' ',' ',' ',' ',' ',' ',' '
 	db	'u','n','l','o','c','k','!',' ',' ',' ',' ',' ',' ',' ',' ',' '
-
+; 2 - entered code (1)
 	db	'E','n','t','e','r',' ','c','o','d','e',':',' ',' ',' ',' ',' '
 	db	' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
 	db	' ',' ',' ',' ',' ',' ',' ',' '
 	db	'*',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
-	
+; 3 - entered code (2) 
 	db	'E','n','t','e','r',' ','c','o','d','e',':',' ',' ',' ',' ',' '
 	db	' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
 	db	' ',' ',' ',' ',' ',' ',' ',' '
 	db	'*','*',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
-
+; 4 - entered code (3)
 	db	'E','n','t','e','r',' ','c','o','d','e',':',' ',' ',' ',' ',' '
 	db	' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
 	db	' ',' ',' ',' ',' ',' ',' ',' '
 	db	'*','*','*',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
-
+; 5 - entered code (4)
 	db	'E','n','t','e','r',' ','c','o','d','e',':',' ',' ',' ',' ',' '
 	db	' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
 	db	' ',' ',' ',' ',' ',' ',' ',' '
 	db	'*','*','*','*',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
-
+; 6 - correct passcode 
 	db	'E','n','t','e','r',' ','c','o','d','e',':',' ',' ',' ',' ',' '
 	db	' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
 	db	' ',' ',' ',' ',' ',' ',' ',' '
 	db	'-','-','-','-','-','-','O','P','E','N','-','-','-','-','-','-'
-
+; 7 - incorrect passcode
 	db	'E','n','t','e','r',' ','c','o','d','e',':',' ',' ',' ',' ',' '
 	db	' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
 	db	' ',' ',' ',' ',' ',' ',' ',' '
-	db	'-','-','-','-','-','-','O','P','E','N','-','-','-','-','-','-'
+	db	' ',' ',' ','I','N','C','O','R','R','E','C','T',' ',' ',' ',' '
+; 8 - out of time 
+	db	' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
+	db	' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
+	db	' ',' ',' ',' ',' ',' ',' ',' '
+	db	' ',' ',' ','-','T','I','M','E','O','U','T','-',' ',' ',' ',' '
+; 9 - options
+	db	'O','p','t','i','o','n','s',':',' ',' ',' ',' ',' ',' ',' ',' '
+	db	' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
+	db	' ',' ',' ',' ',' ',' ',' ',' '
+	db	' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
+; 10 - change code
+	db	'O','p','t','i','o','n','s',':',' ',' ',' ',' ',' ',' ',' ',' '
+	db	' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
+	db	' ',' ',' ',' ',' ',' ',' ',' '
+	db	'C','-','C','h','a','n','g','e',' ','C','o','d','e',' ',' ',' '
+; 11 - change alarm
+	db	'O','p','t','i','o','n','s',':',' ',' ',' ',' ',' ',' ',' ',' '
+	db	' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
+	db	' ',' ',' ',' ',' ',' ',' ',' '
+	db	'A','-','A','l','a','r','m',' ','O','n','/','O','f','f',' ',' '
+; 12 - alarm on 
+	db	'A','l','a','r','m',':',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
+	db	' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
+	db	' ',' ',' ',' ',' ',' ',' ',' '
+	db	' ',' ',' ',' ',' ',' ','-','O','N','-',' ',' ',' ',' ',' ',' '
+; 13 - alarm off 
+	db	'A','l','a','r','m',':',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
+	db	' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
+	db	' ',' ',' ',' ',' ',' ',' ',' '
+	db	' ',' ',' ',' ',' ','-','O','F','F','-',' ',' ',' ',' ',' ',' '
+; 14 - enter new code
+	db	'E','n','t','e','r',' ','n','e','w',' ','c','o','d','e',':',' '
+	db	' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
+	db	' ',' ',' ',' ',' ',' ',' ',' '
+	db	' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
+; 15 - new code set 
+	db	'E','n','t','e','r',' ','n','e','w',' ','c','o','d','e',':',' '
+	db	' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
+	db	' ',' ',' ',' ',' ',' ',' ',' '
+	db	'-','-','N','E','W',' ','C','O','D','E',' ','S','E','T','-','-'
+	
+	align	2		; Align instruction and location in PM again 
 
-
-	align	2
-
-;=======LCD Setup===============================================================
 psect	LCDcode, class=CODE
+	
+;=======LCD Setup===============================================================
 LCDSetup:
 	clrf    LATB, A
 	movlw   11000000B	; RB0:5 all outputs
@@ -103,10 +138,10 @@ LCDSetup:
 LCDWrite:	
 ; Writes message denoted by number option stored in W
 	mullw	twoLine		    ; option x 56 bytes
-	movff	PRODL, messageSel
+	movff	PRODL, messageSel   ; store 16-bit product in messageSel
 	movff	PRODH, messageSel+1
-	
-	call	loadMessage	    ; Load message at relative position to TABLE
+	call	LCDClear	    ; clear current message 
+	call	loadMessage	    ; load message at relative position to TABLE
 	movlw	twoLine		    
 	movwf	LCDcounter, A	    ; set # bytes to send
 	call	writeMessage	    ; send # bytes
@@ -114,27 +149,22 @@ LCDWrite:
 	return 
 
 ;=======Main Programme==========================================================
-	
 loadMessage:
-	; Load message at messageSel to TABLE 
+; Load message at messageSel to TABLE 
 
 	movlw	low(myMessage)		    
-	addwf	messageSel, A
-	movff	messageSel, TBLPTRL, A		    ; load low byte to TBLPTRL
-	;movwf	TBLPTRL, A
-	
+	addwf	messageSel, A		    ; add relative loc to memory loc
+	movff	messageSel, TBLPTRL, A	    ; load low byte to TBLPTRL	
 	movlw	high(myMessage)		
-	addwfc	messageSel+1, A
-	movff	messageSel+1, TBLPTRH, A
-	;movwf	TBLPTRH, A		    ; load relative high byte to TBLPTRH
-	
+	addwfc	messageSel+1, A		    ; add relative loc w/ carry over 
+	movff	messageSel+1, TBLPTRH, A    ; load high byte to TBLPTRH
 	movlw	low highword(myMessage)	    ; address of data in PM
-	movwf	TBLPTRU, A		    ; load upper bits to TBLPTRU
+	movwf	TBLPTRU, A		    ; load upper bits to TBLPTRU as is
 	
 	return
 
 writeMessage: 
-	; Send message in TABLE to LCD 
+; Send message in TABLE to LCD 
 	tblrd*+				    ; data to table, inc TABLE
 	movf	TABLAT, W, A		    ; table to W
 	call	LCDDataSend		    ; send byte in W	
@@ -143,27 +173,13 @@ writeMessage:
 	return 
 	
 LCDClear:
-	; Clears the LCD Screen 
+; Clears the LCD Screen 
 	movlw	00000001B		    ; clear display instruction
 	call	LCDInstructionSend
 	movlw	2			    ; wait 2ms
 	call	LCDDelayMs
 	return 
 
-;secondLine: 
-;    	lfsr	2, myArray
-;	movlw	36		; put 36 ' ' in PM 
-;	movwf	LCDcounter, A
-;secondLp:	
-;	movlw	' '
-;	movwf	POSTINC2, A
-;	decfsz	LCDcounter, A
-;	bra	secondLp
-;	movlw	36	    	; output large space to LCD
-;	lfsr	2, myArray
-;	call	writeMessage
-;	return 
-;
 ;flash:  ; Subroutine that makes text flash 
 ;	movlw	0xff		; repeats 256 times
 ;	movwf	counter, A

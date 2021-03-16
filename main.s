@@ -1,7 +1,7 @@
 #include <xc.inc>
 
 extrn  LCDSetup, LCDWrite
-    
+
 psect	code, abs
 	
 init: 	org	0x00
@@ -13,16 +13,20 @@ setup:
 	bsf	EEPGD		; access Flash program memory
 	
 	call	LCDSetup	; setup LCD
+	counters    EQU	    0x01
 	
 	goto	start
 	
 ;=======Main Programme==========================================================
 
 start: 
-
-	movlw	6
+	movlw	15
+;	movwf	counters, A
+;loops:	movf	counters, W, A
 	call	LCDWrite
+;	subwfb	counters, f, A
+;	bc	loops
 	goto	$
-    
+
 	end	init
 	
