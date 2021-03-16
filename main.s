@@ -2,7 +2,8 @@
 
 extrn  LCDSetup, LCDWrite
     
-psect	code, abs	
+psect	code, abs
+	
 init: 	org	0x00
  	goto	setup
 
@@ -19,8 +20,9 @@ setup:
 
 start: 
 
-	movlw	0
+	movlw	6
 	call	LCDWrite
 	goto	$
     
 	end	init
+	

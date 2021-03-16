@@ -1,6 +1,6 @@
 #include <xc.inc>
 
-global	keypadSetup, intKey, bigDelay
+global	keypadSetup, intKey
     
 psect	udata_acs	; reserve data space in access ram
 key:		ds 1    ; reserve one byte for keypad output
@@ -13,24 +13,6 @@ keyPressed:	ds 1	; number of keys pressed so far
 	delay_cnt2:	ds 1    
 	delay_cnt3:	ds 1  
     
-psect	udata_bank4	; reserve data anywhere in RAM (here at 0x400)
-myKeycodes:	ds 0x80 ; reserve 128 bytes for keycode data
-
-psect	data		; Loaded to FSR0 later
-; DO we want this as a table?*********************************
-keycode:
-	db	01110111B, 10110111B, 11010111B, 11100111B
-	db	01111011B, 10111011B, 11011011B, 11101011B
-	db	01111101B, 10111101B, 11011101B, 11101011B
-	db	01111110B, 10111110B, 11011110B, 11101110B
-	keycode_l   EQU	16	    ; length of data
-	align	2
-decoded:
-	db	'C', 10110111B, 11010111B, 11100111B
-	db	01111011B, 10111011B, 11011011B, 11101011B
-	db	01111101B, 10111101B, 11011101B, 11101011B
-	db	01111110B, 10111110B, 11011110B, '1'
-	align	2
 ;===============================================================================
 psect	keypad_code, class=CODE
 ;	[ Keypad @PORTE RE1>P7 ]
@@ -42,39 +24,12 @@ keypadSetup:
 	banksel PADCFG1		; Move bank to PADCFG1
 	bsf	REPU		; Accesses PADCFG1 for keypad 
 	clrf	LATE, A		; Set Latch-E to 0 
-	call	load		; Load necessary keypad codes to PM
 	return	
 	
 intKey:	
 	incf	keyPressed, F, A
 	call	read
 	return	
-	
-;	btfss	TMR0IF		; check that this is timer0 interrupt
-;	retfie	f		; if not then return
-;	incf	keyPressed, F, A; increment keyPressed counter
-;	call	read		; read key pressed 
-;	bcf	TMR0IF		; clear interrupt flag
-;	retfie	f		; fast return from interrupt
-
-;=======Loading PM==============================================================
-load: 	lfsr	0, myKeycodes	    ; Load FSR0 with address in RAM	
-	movlw	low highword(keycode)	
-	movwf	TBLPTRU, A	    ; load upper bits to TBLPTRU
-	movlw	high(keycode)	
-	movwf	TBLPTRH, A	    ; load high byte to TBLPTRH
-	movlw	low(keycode)	
-	movwf	TBLPTRL, A	    ; load low byte to TBLPTRL
-	movlw	keycode_l	    ; bytes to read
-	movwf 	counter, A	    
-	movlw	0x09
-	movwf	delay09, A
-	
-lLoop: 	tblrd*+			    ; one byte from PM to TABLAT, increment
-	movff	TABLAT, POSTINC0    ; move data from TABLAT to (FSR0), inc FSR0	
-	decfsz	counter, A	    ; count down to zero
-	bra	lLoop	
-	return
 	
 ;=======Reading Keypad Inputs===================================================
 read:	
