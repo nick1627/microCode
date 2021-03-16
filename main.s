@@ -1,6 +1,7 @@
 #include <xc.inc>
 
-extrn  LCDSetup, LCDWrite
+extrn	peripheralSetup, buzz, LEDProgress, LEDFlash
+extrn	LCDSetup, LCDWrite
 
 psect	code, abs
 	
@@ -11,21 +12,17 @@ setup:
 	; technical setup
 	bcf	CFGS	        ; point to Flash program memory  
 	bsf	EEPGD		; access Flash program memory
-	
-	call	LCDSetup	; setup LCD
-	counters    EQU	    0x01
+	call	LCDSetup
+	call	peripheralSetup
 	
 	goto	start
 	
 ;=======Main Programme==========================================================
 
 start: 
-	movlw	15
-;	movwf	counters, A
-;loops:	movf	counters, W, A
+	movlw	7
 	call	LCDWrite
-;	subwfb	counters, f, A
-;	bc	loops
+	call	buzz
 	goto	$
 
 	end	init
