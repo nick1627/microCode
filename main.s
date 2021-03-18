@@ -1,9 +1,10 @@
 #include <xc.inc>
 
-;extrn	LCDSetup, LCD_Write_Message, LCD_Write_Hex ; external LCD subroutines
+extrn	LCDSetup, LCDWrite
 extrn	keypadSetup, checkKey
+extrn	peripheralSetup, buzz, LEDProgress, LEDFlash, LEDDelay
+
     
-   
 psect	udata_acs   ; reserve data space in access ram
 storedKey:		ds 4    ; reserve 4 bytes for 4 digit stored keycode
 inputKey:		ds 4    ; reserve 4 bytes for inputted 4 digits stored keycode
@@ -34,11 +35,11 @@ setup:
 	bcf	CFGS	        ; point to Flash program memory  
 	bsf	EEPGD		; access Flash program memory
 	
-	;call	LCDSetup	; setup LCD
-	;call	keypadSetup	; setup keypad
+	call	LCDSetup	; setup LCD
+	call	keypadSetup	; setup keypad
+	call	peripheralSetup	; setup other electronics
 	
 	clrf	TRISC, A	; port-C as output for lock/unlock
-	clrf	TRISD, A	; port-D as output for LEDs
 	
 	; Set up the timer interrupt
 	movlw	10000111B	; configure rules for timer - CHECK THE TIMING!
@@ -95,8 +96,9 @@ start:
 	movlw	welcomeScreen
 	call	LCDWrite
 	; delay
-	goto	mainLoop
-	
+	;goto	mainLoop
+	call	buzz
+	goto	$
 	; debug section
 	
 	
@@ -463,27 +465,27 @@ deactivateAlarm:
 
 ; delay-related code
 	
-delay16Repeater:
-	; This calls the sixteen-bit delay FFh times.
-	movlw	0xFF
-	movwf	delay16_repeats, A
-delay16RepeaterLoop:
-	call	delay16
-	decfsz	delay16_repeats, A
-	bra	delay16_repeater_loop
-	return	
-	
-delay16:
-	movlw	0xFF ;high(0xFFFF)
-	movwf	delay16_counterHigh, A
-	movlw	0xFF ;low(0xFFFF)
-	movwf	delay16_counterLow, A
-	movlw	0x00
-delay16Loop:	
-	; decrement your way through the 16 bits
-	decf	delay16_counterLow, f, A
-	subwfb	delay16_counterHigh, f, A
-	bc	dLoop
-	return
+;delay16Repeater:
+;	; This calls the sixteen-bit delay FFh times.
+;	movlw	0xFF
+;	movwf	delay16_repeats, A
+;delay16RepeaterLoop:
+;	call	delay16
+;	decfsz	delay16_repeats, A
+;	bra	delay16_repeater_loop
+;	return	
+;	
+;delay16:
+;	movlw	0xFF ;high(0xFFFF)
+;	movwf	delay16_counterHigh, A
+;	movlw	0xFF ;low(0xFFFF)
+;	movwf	delay16_counterLow, A
+;	movlw	0x00
+;delay16Loop:	
+;	; decrement your way through the 16 bits
+;	decf	delay16_counterLow, f, A
+;	subwfb	delay16_counterHigh, f, A
+;	bc	dLoop
+;	return
     
 	end	init
