@@ -21,3 +21,7 @@ funclist
 nbproject/Makefile-*
 disassembly/
 *.map
+#the following lines were added by nick - remove if they cause issues
+#config.s
+nbproject/configurations.xml
+project/project.xml

@@ -96,9 +96,9 @@ start:
 	movlw	welcomeScreen
 	call	LCDWrite
 	; delay
-	;goto	mainLoop
-	call	buzz
-	goto	$
+	goto	mainLoop
+	;call	buzz
+	;goto	$
 	; debug section
 	
 	
@@ -192,16 +192,16 @@ timeOut:
 	
 ; display-related code (the standalone subroutines anyway)
 codeEntryDisplay:
-	movlw	0x01
+	movlw	0x00
 	cpfsgt	codeCounter, A
 	bra	codeEntryDisplayEnterCode
-	movlw	0x02
+	movlw	0x01
 	cpfsgt	codeCounter, A
 	bra	codeEntryDisplayOneStar
-	movlw	0x03
+	movlw	0x02
 	cpfsgt	codeCounter, A
 	bra	codeEntryDisplayTwoStar
-	movlw	0x04
+	movlw	0x03
 	cpfsgt	codeCounter, A
 	bra	codeEntryDisplayThreeStar
 	bra	codeEntryDisplayFourStar
@@ -254,8 +254,12 @@ checkEnteredCode:
 	movlw	fourStarScreen
 	call	LCDWrite
 	
+	; reset the code counter, since it will be used here
 	movlw	0x00
 	movwf	codeCounter, A
+	; also reset the FSRs relating to the two codes to compare
+	lfsr	0, inputKey	; FSR0 used with inputKey
+	lfsr	1, storedKey	; FSR1 used with storedKey
 checkEnteredCodeLoop:
 	movf	POSTINC0, W, A
 	cpfseq	POSTINC1, A

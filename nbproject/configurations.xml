@@ -14,9 +14,9 @@
                    projectFiles="true">
       <itemPath>LCD.S</itemPath>
       <itemPath>config.s</itemPath>
-      <itemPath>/Users/hodgepodge/Documents/Imperial/Yr3/Labs/Microprocessor/microCode/microCode/keypad.s</itemPath>
-      <itemPath>/Users/hodgepodge/Documents/Imperial/Yr3/Labs/Microprocessor/microCode/microCode/main.s</itemPath>
-      <itemPath>/Users/hodgepodge/Documents/Imperial/Yr3/Labs/Microprocessor/microCode/microCode/otherPeripherals.s</itemPath>
+      <itemPath>keypad.s</itemPath>
+      <itemPath>main.s</itemPath>
+      <itemPath>otherPeripherals.s</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
@@ -636,9 +636,7 @@
         <property key="memories.programmemory" value="true"/>
         <property key="memories.programmemory.ranges" value="0-1ffff"/>
         <property key="memories.rww" value="true"/>
-        <property key="poweroptions.powerenable" value="false"/>
-        <property key="programmerToGoFilePath"
-                  value="/Users/hodgepodge/Documents/Imperial/Yr3/Labs/Microprocessor/microCode/microCode/debug/default/default_ptg"/>
+        <property key="poweroptions.powerenable" value="true"/>
         <property key="programmerToGoImageName" value="default_ptg"/>
         <property key="programoptions.donoteraseauxmem" value="false"/>
         <property key="programoptions.eraseb4program" value="true"/>
