@@ -17,7 +17,11 @@ temp1:			ds 1
 mode:			ds 1	; the program mode - this determines what the interrupt
 				; does when valid keypad presses are made
 alarmFlag:		ds 1	;
-
+currentScreen:		ds 1	; stores the code associated with the current
+				; screen being displayed
+delay16Counter:		ds 2	; reserve 2 bytes for the 16-bit delay
+delay16Repeats:		ds 1	; reserve 1 byte to indicate how many times to 
+				; call the 16-bit delay
 			
 
 psect	code, abs	
@@ -47,6 +51,7 @@ setup:
 	bsf	TMR0IE		; enable timer 0 interrupts
 	bsf	GIE		; globally enable all interrupts with high priority
 	
+	call	lock		; ensure lock is locked
 	
 	; program related setup
 	; initialise contents of code counter
@@ -63,6 +68,11 @@ setup:
 	
 	movlw	0xFF		; set the alarm to be on initially
 	movwf	alarmFlag, A
+	
+	call	resetAttemptTimer ; attempt timer must be set to its maximum
+				  ; initially.
+	
+	
 	
 	
 	; screen options
@@ -87,6 +97,9 @@ setup:
 	enterNewCodeScreen	EQU 14
 	newCodeSetScreen	EQU 15
 	
+	movlw	100		; initialise value of currentScreen
+	movwf	currentScreen, A; to match the first screen displayed
+	
 	
 	goto	start
 	
@@ -94,11 +107,11 @@ setup:
 
 start: 
 	movlw	welcomeScreen
-	call	LCDWrite
+	call	updateLCD
+	call	buzz
 	; delay
 	goto	mainLoop
-	;call	buzz
-	;goto	$
+
 	; debug section
 	
 	
@@ -129,7 +142,7 @@ mode0:
 	; the entered code is reset if the timer has run out.
 	call	resetEnteredCode
 	; now we decrement the timer (if the timer has not run out).
-	call	decrementAttemptTimer
+	;call	decrementAttemptTimer
 	; display the correct display for the current moment
 	call	codeEntryDisplay
 	; now loop back to the beginning
@@ -143,13 +156,16 @@ mode1:
 	; time has run out, switch back to locked mode
 	bra	mode1Exit
 	; time has not run out, so offer options
-	movlw	optionScreen
-	call	LCDWrite
+	;movlw	optionScreen
+	;call	updateLCD
+	;call	delay16Repeater
 	movlw	changeCodeScreen
-	call	LCDWrite
+	call	updateLCD
+	; delay to let message be visible before switching
+	call	delay16Repeater
 	movlw	changeAlarmScreen
-	call	LCDWrite
-	; will need a delay
+	call	updateLCD
+	call	delay16Repeater
 	
 	
 	goto	mainLoop
@@ -161,7 +177,7 @@ mode2:
 	; in this mode, we can change the code.
 	; if the time runs out, we switch back to the locked mode
 	movlw	enterNewCodeScreen
-	call	LCDWrite
+	call	updateLCD
 	; check code counter
 	; if code counter = 4, do the code checking sequence
 	movlw	codeLength
@@ -186,7 +202,7 @@ mode2Exit:
 timeOut:
 	call	resetEnteredCode
 	movlw	outOfTimeScreen
-	call	LCDWrite
+	call	updateLCD
 	return
 	
 	
@@ -221,7 +237,7 @@ codeEntryDisplayFourStar:
 	movlw	fourStarScreen
 	bra	codeEntryDisplayExit
 codeEntryDisplayExit:
-	call	LCDWrite
+	call	updateLCD
 	return
 	
 	
@@ -252,7 +268,7 @@ checkEnteredCode:
 	
 	; display the correct screen
 	movlw	fourStarScreen
-	call	LCDWrite
+	call	updateLCD
 	
 	; reset the code counter, since it will be used here
 	movlw	0x00
@@ -270,24 +286,28 @@ checkEnteredCodeLoop:
 	bra	checkEnteredCodeLoop
 codeCorrect:
 	; reset the entered code
-	call resetEnteredCode
+	call	resetEnteredCode
 	; display relevant screen
 	movlw	codeCorrectScreen
-	call	LCDWrite
+	call	updateLCD
 	; unlock the lock
 	call	unlock
 	; set the mode
 	call	switchMode1
-	return
+	call	delay16Repeater
+	goto	mainLoop
 codeIncorrect:
 	; the entered code is incorrect
+	; reset the entered code
+	call	resetEnteredCode
 	; display relevant screen
 	movlw	codeIncorrectScreen
-	call	LCDWrite
+	call	updateLCD
 	; ensure lock is locked
 	call	lock
 	call	switchMode0
-	return
+	call	delay16Repeater
+	goto	mainLoop
 
 	
 appendEnteredCode:
@@ -302,6 +322,7 @@ resetEnteredCode:
 	; for the input digits, and should be reset to the first location 
 	; now
 	lfsr	0, inputKey
+	
 	return
 
 incrementCodeCounter:
@@ -350,7 +371,7 @@ setNewCode:
 	; this sets the new code, switches the mode and goes to mainloop
 	movff	inputKey, storedKey
 	movlw	newCodeSetScreen
-	call	LCDWrite
+	call	updateLCD
 	call	resetEnteredCode
 	call	switchMode0
 	call	lock
@@ -360,13 +381,11 @@ setNewCode:
 	
 ; lock-related code
 lock:	; This sends the signal to lock the lock
-	movlw	0xFF
-	movwf	PORTC, A
+	setf	PORTC, A	
 	return
 	
 unlock:	; This sends the signal to unlock the lock
-	movlw	0x00
-	movwf	PORTC, A
+	clrf	PORTC, A
 	return
 	
 ; code that runs on the interrupt
@@ -374,14 +393,15 @@ checkForKeyPress:
 	btfss	TMR0IF		; check that this is timer0 interrupt
 	retfie	f		; if not then return
 	
-	; move keypad input to W if any
+	
 	movlw	0xFF
 	movwf   temp1, A
-	call	checkKey		
+	call	checkKey	; this puts new key in WREG		
 	; if input key is FF then invalid or no press 
 	cpfsgt	temp1, A
 	goto	checkForKeyPressExit	
-	
+	; temporarily put pressed key into temp1
+	movwf	temp1, A
 	; If valid key press, then branch based on mode:
 	movlw	0x00
 	cpfsgt	mode, A
@@ -391,6 +411,7 @@ checkForKeyPress:
 	bra	checkForKeyPressMode1
 	bra	checkForKeyPressMode2
 checkForKeyPressMode0:
+	movf	temp1, W, A
     	; find new location to store the pressed key
 	; store the pressed key
 	call	appendEnteredCode ; ASSUMES NEW KEY STORED IN WREG
@@ -400,19 +421,20 @@ checkForKeyPressMode0:
 	call	incrementCodeCounter
 	bra	checkForKeyPressExit
 checkForKeyPressMode1:
+	movf	temp1, W, A
 	; expect two allowed inputs
 	; A to switch alarm on/off
 	; C to change code
 	; otherwise, exit
 	movwf	temp1, A
-	movlw	01111110B ;CODE FOR "A" GOES HERE
+	movlw	10 ;CODE FOR "A" GOES HERE
 	cpfseq	temp1, A
 	bra	checkForKeyPressMode1MoreOptions
 	bra	checkForKeyPressMode1Alarm
 	
 checkForKeyPressMode1MoreOptions:
 	; now check if the output was C
-	movlw	01110111B ; CODE FOR "C" GOES HERE
+	movlw	12 ; CODE FOR "C" GOES HERE
 	cpfseq	temp1, A
 	bra	checkForKeyPressExit
 	; otherwise switch to mode 2 and exit, allowing 
@@ -430,16 +452,17 @@ checkForKeyPressMode1AlarmTurnOn:
 	movlw	0xFF
 	movwf	alarmFlag, A
 	movlw	alarmOnScreen
-	call	LCDWrite
+	call	updateLCD
 	return
 checkForKeyPressMode1AlarmTurnOff:
 	movlw	0x00
 	movwf	alarmFlag, A
 	movlw	alarmOffScreen
-	call	LCDWrite
+	call	updateLCD
 	return
 	
 checkForKeyPressMode2:
+	movf	temp1, W, A
 	; the option to change the stored code has been selected in the previous
 	; interrupt, so now we are in mode 2 and are looking to change the code.
 	
@@ -466,30 +489,44 @@ deactivateAlarm:
 	movlw	0x00
 	movwf	alarmFlag, A
 	return
+	
+; display management code
+updateLCD:
+	; expect new screen value in W
+	cpfseq	currentScreen, A
+	bra	updateLCDNewScreen
+	return
+updateLCDNewScreen:
+	movwf	currentScreen, A
+	call	LCDWrite
+	return
 
+	
 ; delay-related code
 	
-;delay16Repeater:
-;	; This calls the sixteen-bit delay FFh times.
-;	movlw	0xFF
-;	movwf	delay16_repeats, A
-;delay16RepeaterLoop:
-;	call	delay16
-;	decfsz	delay16_repeats, A
-;	bra	delay16_repeater_loop
-;	return	
-;	
-;delay16:
-;	movlw	0xFF ;high(0xFFFF)
-;	movwf	delay16_counterHigh, A
-;	movlw	0xFF ;low(0xFFFF)
-;	movwf	delay16_counterLow, A
-;	movlw	0x00
-;delay16Loop:	
-;	; decrement your way through the 16 bits
-;	decf	delay16_counterLow, f, A
-;	subwfb	delay16_counterHigh, f, A
-;	bc	dLoop
-;	return
+delay16Repeater:
+	; This calls the sixteen-bit delay FFh times.
+	movlw	0x80
+	movwf	delay16Repeats, A
+delay16RepeaterLoop:
+	call	delay16
+	decfsz	delay16Repeats, A
+	bra	delay16RepeaterLoop
+	return
+	
+
+	
+delay16:
+	movlw	0xFF ;high(0xFFFF)
+	movwf	delay16Counter, A
+	movlw	0xFF ;low(0xFFFF)
+	movwf	delay16Counter+1, A
+	movlw	0x00
+delay16Loop:	
+	; decrement your way through the 16 bits
+	decf	delay16Counter+1, f, A
+	subwfb	delay16Counter, f, A
+	bc	delay16Loop
+	return
     
 	end	init

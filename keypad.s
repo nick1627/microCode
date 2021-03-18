@@ -120,7 +120,7 @@ checkZero:
 	movlw	01111101B	    ; Code for 9 Button 
 	cpfseq	key, A		    ;  
 	goto	checkA		    ; If different, its invaliid
-	movlw	0xff
+	movlw	0
 	return 
 checkA:
 	movlw	01111110B	    ; Code for A Button 
