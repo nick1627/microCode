@@ -60,7 +60,7 @@ decode:
 	movlw	11111111B	    ; Compare to 0xFF
 	cpfseq	key, A		    ; (No key pressed) 
 	goto	checkOne	    ; If different, skip to next check 
-	movlw	0xff
+	movlw	16
 	return 
 checkOne:	
 	movlw	11101110B	    ; Code for 1 Button 
@@ -131,7 +131,7 @@ checkA:
 checkB:
 	movlw	01111011B	    ; Code for B Button 
 	cpfseq	key, A		    ;  
-	goto	checkC		    ; If different, its invaliid
+	goto	checkC		    ; If different, its invalid
 	movlw	11
 	return 
 checkC:
@@ -160,7 +160,7 @@ checkF:
 	return 
 	
 invalidPress: 
-	movlw	0xff
+	movlw	17
 	return 
 
 ;=======Other Sub-Routines======================================================
