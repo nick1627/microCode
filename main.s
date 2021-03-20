@@ -68,8 +68,7 @@ setup:
 	
 	codeLength EQU 0x04
  
-	lfsr	0, inputKey	; will use FSR0 with inputKey
-	lfsr	1, storedKey	; will use FSR1 with storedKey
+	call	resetFSRs
 	
 	movlw	0x00
 	movwf	mode, A
@@ -151,7 +150,7 @@ mode0:
 	; the entered code is reset if the timer has run out.
 	call	resetEnteredCode
 	; now we decrement the timer (if the timer has not run out).
-	call	decrementTimer ;	WHAT
+	call	decrementTimer
 	; display the correct display for the current moment
 	call	codeEntryDisplay
 	; now loop back to the beginning
@@ -165,13 +164,8 @@ mode1:
 	; time has run out, switch back to locked mode
 	bra	mode1Exit
 	; time has not run out, so offer options
-	movlw	changeCodeScreen
-	call	updateLCD
-	; delay to let message be visible before switching
-	call	delay16RepeaterHalf
-	movlw	changeAlarmScreen
-	call	updateLCD
-	call	delay16RepeaterHalf
+	call	selectOptionScreen
+
 	
 	call	decrementTimer
 	
@@ -215,8 +209,6 @@ mode3:
 	; only turn on the alarm if the alarmFlag is True.
 	movlw	0x00
 	bra	mode3Exit
-	
-	
 mode3Exit:
 	call	switchMode0
 	goto	mainLoop
@@ -309,8 +301,7 @@ checkEnteredCode:
 	movlw	0x00
 	movwf	codeCounter, A
 	; also reset the FSRs relating to the two codes to compare
-	lfsr	0, inputKey	; FSR0 used with inputKey
-	lfsr	1, storedKey	; FSR1 used with storedKey
+	call	resetFSRs
 checkEnteredCodeLoop:
 	movf	POSTINC0, W, A
 	cpfseq	POSTINC1, A
@@ -394,11 +385,11 @@ resetTimerMode0:
 	movwf	timer, A
 	bra	resetTimerExit
 resetTimerMode1:
-	movlw	0x05
+	movlw	0xFF
 	movwf	timer+2, A
-	movlw	0x00
+	movlw	0xFF
 	movwf	timer+1, A
-	movlw	0x00
+	movlw	0x40
 	movwf	timer, A
 	bra	resetTimerExit
 resetTimerMode2:
@@ -406,7 +397,7 @@ resetTimerMode2:
 	movwf	timer+2, A
 	movlw	0xFF
 	movwf	timer+1, A
-	movlw	0x40
+	movlw	0x80
 	movwf	timer, A
 	bra	resetTimerExit
 resetTimerExit:
@@ -441,7 +432,16 @@ decrementTimer:
 ; stored passcode related code
 setNewCode:
 	; this sets the new code, switches the mode and goes to mainloop
-	movff	inputKey, storedKey
+	
+	call	resetCodeCounter
+	call	resetFSRs
+	movlw	codeLength 
+setNewCodeLoop:
+	movff	POSTINC0, POSTINC1
+	call	incrementCodeCounter
+	cpfseq	codeCounter, A
+	bra	setNewCodeLoop
+setNewCodeExit:
 	; call	writeEEPROM
 	movlw	newCodeSetScreen
 	call	updateLCD
@@ -450,6 +450,11 @@ setNewCode:
 	call	lock
 	; DELAY?
 	goto	mainLoop
+
+resetFSRs:
+	lfsr	0, inputKey	; will use FSR0 with inputKey
+	lfsr	1, storedKey	; will use FSR1 with storedKey
+	return
 	
 	
 ; lock-related code
@@ -545,18 +550,16 @@ checkForKeyPressMode1AlarmTurnOn:
 	movwf	alarmFlag, A
 	movlw	alarmOnScreen
 	call	updateLCD
-;	movlw	0x01
-;	call	delay16RepeaterW
-	call	delay8
+	call	delay16RepeaterHalf
+	;call	delay8
 	bra	checkForKeyPressBlockInput
 checkForKeyPressMode1AlarmTurnOff:
 	movlw	0x00
 	movwf	alarmFlag, A
 	movlw	alarmOffScreen
 	call	updateLCD
-	;movlw	0x01
-	;call	delay16RepeaterW
-	call	delay8
+	call	delay16RepeaterHalf
+	;call	delay8
 	bra	checkForKeyPressBlockInput
 checkForKeyPressMode2:
 	movf	newKey, W, A
@@ -605,6 +608,21 @@ updateLCD:
 updateLCDNewScreen:
 	movwf	currentScreen, A
 	call	LCDWrite
+	return
+
+selectOptionScreen:
+	movf	timer, W, A
+	; The timer counts down.  Using the current value of the timer,
+	; we decide what the screen should display based on the timer.
+	btfss	timer, 3, A
+	bra	selectOptionScreenA
+selectOptionScreenC:
+	movlw	changeCodeScreen
+	call	updateLCD
+	return
+selectOptionScreenA:
+	movlw	changeAlarmScreen
+	call	updateLCD
 	return
 
 	
