@@ -11,14 +11,17 @@ global	storedKey
     
 psect	udata_acs   ; reserve data space in access ram
 storedKey:		ds 4    ; reserve 4 bytes for 4 digit stored keycode
-inputKey:		ds 4    ; reserve 4 bytes for inputted 4 digits stored keycode
-codeCounter:		ds 1	; reserve 1 byte to store length of inputted code
+inputKey:		ds 4    ; reserve 4 bytes for inputted 4 digits stored 
+				; keycode
+codeCounter:		ds 1	; reserve 1 byte to store length of inputted 
+				; code
 timer:			ds 3	; reserve 3 bytes for the timer.
-timerFinished:		ds 1	; reserve 1 byte to indicate whether the timer has finished
-				; i.e. has reached 0
+timerFinished:		ds 1	; reserve 1 byte to indicate whether the timer 
+				; has finished i.e. has reached 0
 temp1:			ds 1
-mode:			ds 1	; the program mode - this determines what the interrupt
-				; does when valid keypad presses are made
+mode:			ds 1	; the program mode - this determines what the 
+				; interrupt does when valid keypad presses are 
+				; made
 alarmFlag:		ds 1	;
 currentScreen:		ds 1	; stores the code associated with the current
 				; screen being displayed
@@ -37,7 +40,8 @@ init: 	org	0x00
  	goto	setup
 
 intHigh:	
-	org	0x0008			; high priority interrupt triggered by timer
+	org	0x0008			; high priority interrupt triggered by 
+					; timer
 	goto	checkForKeyPress	; store keypad input
 
 ;=======Setup I/O===============================================================
@@ -57,7 +61,8 @@ setup:
 	movlw	10000101B	; configure rules for timer - CHECK THE TIMING!
 	movwf	T0CON, A
 	bsf	TMR0IE		; enable timer 0 interrupts
-	bsf	GIE		; globally enable all interrupts with high priority
+	bsf	GIE		; globally enable all interrupts with high 
+				; priority
 	
 	call	lock		; ensure lock is locked
 	
@@ -109,6 +114,8 @@ setup:
 	; mode 2
 	enterNewCodeScreen	EQU 14
 	newCodeSetScreen	EQU 15
+	alarmScreen1		EQU 16
+	alarmScreen2		EQU 17
 	
 	movlw	100		; initialise value of currentScreen
 	movwf	currentScreen, A; to match the first screen displayed
@@ -218,8 +225,8 @@ mode2Exit:
 	call	switchMode0
 	goto	mainLoop
 mode3:	
-	; at this point, the alarm must sound because there have been sufficiently
-	; many incorrect attempts at gaining entry
+	; at this point, the alarm must sound because there have been 
+	; sufficiently many incorrect attempts at gaining entry
 	
 	; the alarm sounds for a certain amount of time
 	call	decrementTimer
@@ -241,13 +248,18 @@ mode3SoundAlarmOff:
 	bra	mode3FlashLEDs
 mode3FlashLEDs:
 	; flash the LEDs based on the timer
+	; simulateously change the screen message
 	btfss	timer, 1, A
 	bra	mode3FlashLEDsOn
 	bra	mode3FlashLEDsOff
 mode3FlashLEDsOff:
+	movlw	alarmScreen1
+	call	updateLCD
 	call	LEDsOff
 	bra	mode3End
 mode3FlashLEDsOn:
+	movlw	alarmScreen2
+	call	updateLCD
 	call	LEDsOn
 	bra	mode3End
 mode3End:	
@@ -260,6 +272,7 @@ mode3End:
 	; otherwise loop back to the beginning
 	goto	mainLoop
 mode3Exit:
+	call	resetPeripherals
 	call	resetAttemptCounter
 	call	switchMode0
 	goto	mainLoop
@@ -275,8 +288,8 @@ timeOut:
 	
 ; display-related code (the standalone subroutines anyway)
 codeEntryDisplay:
-	; this subroutine determines which display is to be presented to the user
-	; on code entry, whether in modes 0 or 2
+	; this subroutine determines which display is to be presented to the 
+	; user on code entry, whether in modes 0 or 2
 	movlw	0x00
 	cpfsgt	codeCounter, A
 	bra	codeEntryDisplayEnterCode
