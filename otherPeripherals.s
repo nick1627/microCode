@@ -17,6 +17,7 @@ psect	LED_code, class=CODE
 
 peripheralSetup: 
 	clrf    TRISD, A	; set port-D as output for LEDs
+	clrf	PORTD, A
 ;	clrf	LATB, A		; done in LCD.s
 	movlw	10000000B	; update on LCD.s
 	movwf	TRISB, A    
