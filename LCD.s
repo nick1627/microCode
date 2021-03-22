@@ -1,6 +1,6 @@
 #include <xc.inc>
 
-global  LCDSetup, LCDWrite
+global  LCDSetup, LCDWrite, LCDDelayMs
 
 psect	udata_acs;================================named variables in access ram=
 LCD_cnt_l:	ds 1	; reserve 1 byte for variable LCD_cnt_l

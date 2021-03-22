@@ -1,7 +1,7 @@
 #include <xc.inc>
 
 extrn	peripheralSetup, buzz, LEDProgress, LEDFlash
-extrn	LCDSetup, LCDWrite
+extrn	LCDSetup, LCDWrite, LCDDelayMs
 global	storedKey, testKey
 extrn	readEEPROM, writeEEPROM
 
@@ -26,22 +26,11 @@ setup:
 ;=======Main Programme==========================================================
 
 start: 
-	;call	buzz
-	call	readEEPROM
-
-	movlw   2
-	call	LCDWrite 
-	movlw	8
-	movwf	storedKey, A
-	movlw	7
-	movwf	storedKey+1, A
-	movlw	6
-	movwf	storedKey+2, A
 	movlw	5
-	movwf	storedKey+3, A
-	
-	call	writeEEPROM	
+	call	LCDDelayMs
+	;call	writeEEPROM	
 
+	call	readEEPROM
 	movff	testKey, PORTD
 	goto	$
 
