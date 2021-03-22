@@ -2,7 +2,9 @@
 
 extrn	LCDSetup, LCDWrite
 extrn	keypadSetup, checkKey
-extrn	peripheralSetup, buzz, LEDProgress, LEDFlash, LEDDelay
+extrn	peripheralSetup, buzz, LEDProgress, LEDFlash, LEDDelay, LEDsOn, LEDsOff
+extrn	buzzOn, buzzOff
+extrn	resetPeripherals
 ;extrn	readEEPROM, writeEEPROM
 
 global	storedKey
@@ -79,6 +81,10 @@ setup:
 	call	resetTimer	; timer must be set to its maximum
 				; initially.
 	
+	call	resetAttemptCounter	; the attempt counter should be 0 
+					; initially
+					
+        call	resetPeripherals
 	
 	
 	
@@ -131,11 +137,14 @@ mainLoop:
 	; select which mode we're in
 	movlw	0x00
 	cpfsgt	mode, A
-	bra	mode0
+	bra	mode0	; code entry mode, designated 0
 	movlw	0x01
 	cpfsgt	mode, A
-	bra	mode1
-	bra	mode2
+	bra	mode1	; option selection mode, designated 1
+	movlw	0x02
+	cpfsgt	mode, A
+	bra	mode2	; new code entry mode, designated 2
+	bra	mode3	; alarm mode, designated 3
 mode0:    
 	; check code counter
 	; if code counter = 4, do the code checking sequence
@@ -153,6 +162,11 @@ mode0:
 	call	decrementTimer
 	; display the correct display for the current moment
 	call	codeEntryDisplay
+	; If 3 incorrect attempts have been made, we must go to mode 3
+	; and sound the alarm.
+	movlw	0x03
+	cpfslt	attemptCounter, A
+	call	switchMode3
 	; now loop back to the beginning
 	goto	mainLoop
 mode1:	
@@ -206,10 +220,47 @@ mode2Exit:
 mode3:	
 	; at this point, the alarm must sound because there have been sufficiently
 	; many incorrect attempts at gaining entry
+	
+	; the alarm sounds for a certain amount of time
+	call	decrementTimer
 	; only turn on the alarm if the alarmFlag is True.
+	movlw	0xFF
+	cpfseq	alarmFlag, A
+	; skip sounding the alarm if the alarm flag is false
+	bra	mode3FlashLEDs
+mode3SoundAlarm:
+	; sound the alarm
+	btfss	timer+2, 7, A
+	bra	mode3SoundAlarmOn
+	bra	mode3SoundAlarmOff
+mode3SoundAlarmOn:
+	call	buzzOn
+	bra	mode3FlashLEDs
+mode3SoundAlarmOff:
+	call	buzzOff
+	bra	mode3FlashLEDs
+mode3FlashLEDs:
+	; flash the LEDs based on the timer
+	btfss	timer, 1, A
+	bra	mode3FlashLEDsOn
+	bra	mode3FlashLEDsOff
+mode3FlashLEDsOff:
+	call	LEDsOff
+	bra	mode3End
+mode3FlashLEDsOn:
+	call	LEDsOn
+	bra	mode3End
+mode3End:	
+	; leave mode 3 if the timer has run out
+	; check to see if the timer has run out
 	movlw	0x00
+	cpfseq	timerFinished, A
+	; If the timer runs out, we exit mode 3
 	bra	mode3Exit
+	; otherwise loop back to the beginning
+	goto	mainLoop
 mode3Exit:
+	call	resetAttemptCounter
 	call	switchMode0
 	goto	mainLoop
 	
@@ -286,6 +337,12 @@ switchMode2:
 	; use same timer for modes 1, 2 and 3
 	call	resetTimer 
 	return
+switchMode3:
+	movlw	0x03
+	movwf	mode, A
+	; use same timer for modes 1, 2 and 3
+	call	resetTimer 
+	return
 	
 	
 ; code related to entered passcode
@@ -335,7 +392,7 @@ codeIncorrect:
 	call	lock
 	call	switchMode0
 	call	delay16RepeaterHalf
-	incf	attemptCounter, A
+	call	incrementAttemptCounter
 	goto	mainLoop
 
 	
@@ -365,6 +422,17 @@ resetCodeCounter:
 	
 	return
 	
+incrementAttemptCounter:
+	; this increments the attempt counter for when a whole code is entered
+	incf	attemptCounter, A
+	return
+	
+resetAttemptCounter:
+	; this resets the attempt counter 
+	movlw	0x00
+	movwf	attemptCounter, A
+	return
+	
 ; timer-related code
 resetTimer:
 	; the value that the timer is reset to depends on what mode the 
@@ -375,7 +443,10 @@ resetTimer:
 	movlw	0x01
 	cpfsgt	mode, A
 	bra	resetTimerMode1
+	movlw	0x02
+	cpfsgt	mode, A
 	bra	resetTimerMode2
+	bra	resetTimerMode3
 resetTimerMode0:
 	movlw	0xFF
 	movwf	timer+2, A
@@ -398,6 +469,14 @@ resetTimerMode2:
 	movlw	0xFF
 	movwf	timer+1, A
 	movlw	0x80
+	movwf	timer, A
+	bra	resetTimerExit
+resetTimerMode3:
+	movlw	0xFF
+	movwf	timer+2, A
+	movlw	0xFF
+	movwf	timer+1, A
+	movlw	0xFF
 	movwf	timer, A
 	bra	resetTimerExit
 resetTimerExit:
@@ -590,28 +669,35 @@ checkForKeyPressExit:
 	
 ; alarm-related code
 activateAlarm:
+	; sets the alarm flag such that the alarm is activated
 	movlw	0xFF
 	movwf	alarmFlag, A
 	return
 
 deactivateAlarm:
+	; sets the alarm flag such that the alarm is deactivated
 	movlw	0x00
 	movwf	alarmFlag, A
 	return
 	
 ; display management code
 updateLCD:
+	; this subroutine will update what is displayed on the LCD.  It first
+	; checks that what's on the screen isn't already the desired outcome, so
+	; that the screen doesn't "flash" every time we update it.
+	
 	; expect new screen value in W
 	cpfseq	currentScreen, A
 	bra	updateLCDNewScreen
 	return
 updateLCDNewScreen:
+	; in this case, we actually do need to change what's on the screen
 	movwf	currentScreen, A
 	call	LCDWrite
 	return
 
 selectOptionScreen:
-	movf	timer, W, A
+	; movf	timer, W, A
 	; The timer counts down.  Using the current value of the timer,
 	; we decide what the screen should display based on the timer.
 	btfss	timer, 3, A
