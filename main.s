@@ -2,8 +2,9 @@
 
 extrn	LCDSetup, LCDWrite
 extrn	keypadSetup, checkKey
+extrn	readEEPROM, writeEEPROM 
 extrn	peripheralSetup, buzz, LEDProgress, LEDFlash, LEDDelay
-
+global	storedKey, codeLength
     
 psect	udata_acs   ; reserve data space in access ram
 storedKey:		ds 4    ; reserve 4 bytes for 4 digit stored keycode

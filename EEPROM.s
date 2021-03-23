@@ -1,68 +1,110 @@
 #include <xc.inc>
 
-extrn		storedKey
+extrn		storedKey, codeLength
 global		readEEPROM, writeEEPROM 
 
-psect	udata_acs
-savedKey:	ds 4
-saveInt:	ds 1
-EEAddr:		ds 1
-    
-EEPGD		EQU 7	; EEPROM memory select bit
-CFGS		EQU 6	; EEPROM config select bit
-EEIF		EQU 4	; EEPROM flag interrupt bit
-WREN		EQU 2	; EEPROM write enable bit
-WR		EQU 1	; EEPROM write control bit
-RD		EQU 0	; EEPROM read control bit
+psect	udata_acs ;=============================================================
+EECounter:	ds 1
 
 psect	EEPROM_code, class=CODE	;===============================================
 
 readEEPROM: 
-    ; read data in EEPROM (@EEAddr) to storedKey
+    ; read data in EEPROM (@EEAddr) to storedKey	    
+	; specify EEPROM address to be written-in with EEADR
+	banksel	EECON1		    ; select EEPROM memory bank 
+	clrf	EEADR		    ; reset set address in EEPROM at 0x0000
+	clrf	EEADRH
 	
-	;movf	EEPROMADDr+1, W, A
-	;movwf	EEADRH
-    
-	movf	EEPROMAddr, W, A
-	movwf	EEADR		; move address in access to be read to EEADR
+	; setup EEPROM for reading 
+	clrf	EECON1		    ; clears EEPGD/CFGS to select EEPROM memory
+
+	; read EEADR to EEADR+4 into storedKey in FSR1
+	lfsr	1, storedKey	    ; load FSR1 with storedKey memory location -- CHANGE TEST KEY
+	movlw	codeLength
+	movwf	EECounter, A	    ; load counter with the number of keys (4)
+	incf	EEADR		    ; read/write begins at location: 0x0001
+
+readLp:	; loop to read data for each key 
+	bsf	RD		    ; initialise read cycle 
+	nop			    ; leave one cycle for reading 
+	movf	EEDATA, W	    ; move data to FSR1 (storedKey)
+	movwf	POSTINC1
 	
-	bcf	EECON1, EEPGD	; clear EEPGD to select EEPROM data memory
-	bcf	EECON1, CFGS	; clear CFGS to access EEPROM data memory -- DONE IN SETUP??
+	incf	EEADR		    ; increment EEADR to the next location in EE
+	decfsz	EECounter, A
+	bra	readLp		    ; repeat for all (4) keys
 	
-	lfsr	1, storedKey	; load FSR1 with storedKey memory location
-	bsf	EECON1, RD	; initialise read cycle 
-	nop			; leave one cycle for reading 
-	movf	EEDATA, W
-	movwf	savedKey	; read data in EEPROM to savedKey
-	
-	bsf	EECON1, EEPGD	; reset EEPGD to select flash data memory again 
+	; reset system and return 
+	bsf	EEPGD ; reset EEPGD to select flash data memory 
 	return
 	
 writeEEPROM:
-	movf	EEPROMAddr, W, A
-	movwf	EEADR		; move address to be written-in to EEADR
-	movf	storedKey, W, A
-	movff	EEDATA		; 8-bit data to be written 
+    ; write data from storedKey to EEPROM (@EEAddr)
+	; specify EEPROM address to be written-in with EEADR
+	banksel	EECON1		    ; select EEPROM memory bank
+	clrf	EEADR		    ; reset set address in EEPROM at 0x0000
+	clrf	EEADRH
 	
-	bcf	EECON1, EEPGD	; clear EEPGD to select EEPROM data memory
-	; 	bcf	EECON1, CFGS
-	bsf	EECON1, WREN	; set WREN to enable writing to EEPROM 
+	; setup EEPROM for writing 
+	clrf	EECON1		    ; clears EEPGD/CFGS to select EEPROM memory
+	bsf	WREN		    ; set WREN to enable writing to EEPROM 
+	bcf	GIE		    ; disable interrupt whilst writing
+
+	; write storedKey in FSR1 into EEADR to EEADR+4
+	lfsr	1, storedKey	    ; load FSR1 with storedKey memory location
+	movlw	codeLength
+	movwf	EECounter, A	    ; load counter with the number of keys (4)
+	incf	EEADR		    ; read/write begins at location: 0x0001
 	
-	;;;movff	INTCON, saveInt, A	; backup INTCON interupt register
-	bcf	INTCON, GIE		; disable interrupt whilst writing
+writeLp:; loop to write data for ecah key 
+	movf	POSTINC1, W, A	    ; move 8-bit data from storedKey to EEDATA
+	movwf	EEDATA		    
 	
-	movlw	0x55		; required sequence for writing to EEPROM
-	movwf	EECON2
+	movlw	0x55		    ; required sequence for writing to EEPROM
+	movwf	EECON2, A
 	movlw	0xAA
-	movwf	EECON2
+	movwf	EECON2, A
+	bsf	WR		    ; initialise write cycle 
 	
-	bsf	EECON1, WR	; initialise write cycle 
-	btfsc	EECON1, WR	; check if writing is done
-	bra	$-2		; wait until write-completed flag is up
+	btfsc	WR		    ; check if writing is done
+	bra	$-2		    ; wait until write-completed flag is up
+	bcf	WRERR		    ; clear writing error flag	
+	bcf	EEIF		    ; clear EEPROM interrupt flag
 	
-	bsf	INTCON, GIE
-	;;;movff	saveInt, INTCON, A	; enable interupt again 
-	bcf	EECON1, WREN	; clear WREN to disable writing to EEPROM 
-	bsf	EECON1, EEPGD	; reset EEPGD to select flash data memory again 
+	incf	EEADR, 1	    ; increment EEADR to the next location
+	decfsz	EECounter, A	    
+	bra	writeLp		    ; repeat for all (4) keys
+	
+	; reset system and return 
+	bsf	GIE		    ; enable interupt again
+	clrf	EECON1		    ; clears WREN to disable write-in to EEPROM 
+	bsf	EEPGD		    ; reset EEPGD to select flash data memory 
+
 	return 
 	
+	
+;;resetEEPROM: 
+;;	clrf	EEADR
+;;	clrf	EEADRH
+;;	bcf	EECON1, 6
+;;	bcf	EECON1, 7
+;;	bcf	GIE
+;;	bsf	EECON1, 2
+;;resetLp:	
+;;	bsf	EECON1, 0
+;;	movlw	0x55
+;;	movwf	EECON2
+;;	movlw	0xAA
+;;	movwf	EECON2
+;;	bsf	EECON1, 1
+;;	btfsc	EECON1, 1
+;;	bra	$-2
+;;	incfsz	EEADR, F
+;;	bra	resetLp 
+;;	incfsz	EEADRH, F
+;;	bra	resetLp
+;;	
+;;	bcf	EECON1, 2
+;;	bsf	GIE
+;;	
+;;	return 
