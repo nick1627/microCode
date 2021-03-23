@@ -1,6 +1,8 @@
 #include <xc.inc>
 
-global peripheralSetup, buzz, LEDProgress, LEDFlash, LEDDelay
+global	peripheralSetup, buzz, LEDProgress, LEDFlash, LEDDelay, LEDsOn, LEDsOff
+global	buzzOn, buzzOff
+global	resetPeripherals
 
 psect	udata_acs		; reserve data space in access ram
 progress:	ds 1	
@@ -47,9 +49,23 @@ casB:	decfsz	delayCounter+1, f, A
 	movlw	buzzFreq
 	movwf	delayCounter+1, A
 	return 
+	
+buzzOn: 
+	bsf PORTB, buzzE, A
+	return 
+
+buzzOff: 
+	bcf PORTB, buzzE, A
+	return
     
 LEDProgress:
-; takes W 0-4 and shows relative progress on LED bar 
+	; takes W 0-4 and shows relative progress on LED bar 
+	; 0 - all off
+	; 1 - a quarter way there
+	; 2 - half way there
+	; 3 - three quarters there
+	; 4 - all on
+    
 	movwf	progress, A 
 	
 	movlw	0		; LED OFF
@@ -93,6 +109,17 @@ flashLp:
 	decfsz	flashTimes, A
 	bra	flashLp
 	return 
+	
+	
+LEDsOn:
+	setf	PORTD, A
+	return
+
+LEDsOff: 
+	clrf	PORTD, A
+	return	
+	
+	
 		
 LEDDelay: 
 	movlw	flashFreq
@@ -114,3 +141,7 @@ casL:	decfsz	delayCounter+2, f, A
 	movlw	flashFreq
 	movwf	delayCounter+2, A
 	return 
+	
+resetPeripherals:
+	call	LEDsOff
+	return
