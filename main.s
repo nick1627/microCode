@@ -2,7 +2,7 @@
 
 extrn	peripheralSetup, buzz, LEDProgress, LEDFlash
 extrn	LCDSetup, LCDWrite, LCDDelayMs
-global	storedKey, testKey
+global	storedKey, testKey, codeLength
 extrn	readEEPROM, writeEEPROM
 
 psect   udata_acs
@@ -18,20 +18,31 @@ setup:
 	; technical setup
 	bcf	CFGS	        ; point to Flash program memory  
 	bsf	EEPGD		; access Flash program memory
-	call	LCDSetup
-	call	peripheralSetup
-	
+	;call	LCDSetup
+	;call	peripheralSetup
+	codeLength EQU 0x04
+ 	clrf    TRISD, A	; set port-D as output for LEDs
+	clrf	PORTD, A
+
 	goto	start
 	
 ;=======Main Programme==========================================================
 
 start: 
-	movlw	5
-	call	LCDDelayMs
-	;call	writeEEPROM	
+	;call	readEEPROM
+	;movff	testKey, PORTD
 
-	call	readEEPROM
-	movff	testKey, PORTD
+	movlw	1
+	movwf	storedKey, A
+	movlw	2
+	movwf	storedKey+1, A
+	movlw	3
+	movwf	storedKey+2, A
+	movlw	4
+	movwf	storedKey+3, A
+	
+	call	writeEEPROM	
+
 	goto	$
 
 	end	init
