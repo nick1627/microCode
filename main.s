@@ -5,9 +5,9 @@ extrn	keypadSetup, checkKey
 extrn	peripheralSetup, buzz, LEDProgress, LEDFlash, LEDDelay, LEDsOn, LEDsOff
 extrn	buzzOn, buzzOff
 extrn	resetPeripherals
-;extrn	readEEPROM, writeEEPROM
+extrn	readEEPROM, writeEEPROM
 
-global	storedKey
+global	storedKey, codeLength
     
 psect	udata_acs   ; reserve data space in access ram
 storedKey:		ds 4    ; reserve 4 bytes for 4 digit stored keycode
@@ -67,7 +67,14 @@ setup:
 	call	lock		; ensure lock is locked
 	
 	; program related setup
-	;call	readEEPROM
+	call	readEEPROM	; this pulls any passcode stored in EEPROM into 
+				; the normal file registers for storedKey
+	; However, each location in EEPROM is automatically set to 0xFF, which
+	; does not correspond to a key on the keypad, so if this has happened it
+	; must be reset to 0000.
+	movlw	0xFF
+	cpfslt	storedKey, A
+	call	resetStoredCode
 	
 	; initialise contents of code counter
 	movlw	0x00
@@ -534,7 +541,7 @@ setNewCodeLoop:
 	cpfseq	codeCounter, A
 	bra	setNewCodeLoop
 setNewCodeExit:
-	; call	writeEEPROM
+	call	writeEEPROM
 	movlw	newCodeSetScreen
 	call	updateLCD
 	call	resetEnteredCode
@@ -546,6 +553,14 @@ setNewCodeExit:
 resetFSRs:
 	lfsr	0, inputKey	; will use FSR0 with inputKey
 	lfsr	1, storedKey	; will use FSR1 with storedKey
+	return
+
+resetStoredCode:
+	movlw	0x00
+	movwf	storedKey, A
+	movwf	storedKey+1, A
+	movwf	storedKey+2, A
+	movwf	storedKey+3, A
 	return
 	
 	
