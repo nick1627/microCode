@@ -4,7 +4,7 @@
 ;* Buzzer hard-wired to RB6 |  LED connected to Port-D RD0-P0		      *
 ;===============================================================================
 #include <xc.inc>
-global	peripheralSetup, buzz, LEDProgress, LEDFlash, LEDDelay, LEDsOn, LEDsOff
+global	peripheralSetup, buzz, LEDProgress, LEDsOn, LEDsOff
 global	buzzOn, buzzOff
 global	resetPeripherals
 
@@ -99,48 +99,14 @@ LEDProgress:
 	
 	setf	PORTD, A	; ALL pins ON 
 	return 
-	
-LEDFlash:
-	movlw	flashFor
-	movwf	flashTimes, A
-flashLp:
-	setf	PORTD, A
-	call	LEDDelay
-	clrf	PORTD, A
-	call	LEDDelay
-	decfsz	flashTimes, A
-	bra	flashLp
-	return 
-	
+		
 LEDsOn:
 	setf	PORTD, A
 	return
 
 LEDsOff: 
 	clrf	PORTD, A
-	return		
-	
-		
-LEDDelay: 
-	movlw	flashFreq
-	movwf	delayCounter, A
-	movwf	delayCounter+1, A
-	movwf	delayCounter+2, A
-casU:	call	casH
-	decfsz	delayCounter, f, A
-	bra	casU
-	return 
-casH:	call	casL
-	decfsz	delayCounter+1, f, A
-	bra	casH
-	movlw	flashFreq
-	movwf	delayCounter+1, A
-	return 
-casL:	decfsz	delayCounter+2, f, A
-	bra	casL
-	movlw	flashFreq
-	movwf	delayCounter+2, A
-	return 
+	return			
 	
 resetPeripherals:
 	call	LEDsOff

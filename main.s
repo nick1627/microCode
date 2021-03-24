@@ -6,8 +6,7 @@
 ; Define external functions to be imported
 extrn	LCDSetup, LCDWrite
 extrn	keypadSetup, checkKey
-extrn	peripheralSetup, buzz, LEDProgress, LEDFlash, LEDDelay, LEDsOn, LEDsOff
-extrn	buzzOn, buzzOff
+extrn	peripheralSetup, LEDProgress, LEDsOn, LEDsOff, buzz, buzzOn, buzzOff
 extrn	resetPeripherals
 extrn	readEEPROM, writeEEPROM
 
@@ -338,6 +337,7 @@ codeEntryDisplay:
 	bra	codeEntryDisplayThreeStar
 	bra	codeEntryDisplayFourStar
 codeEntryDisplayEnterCode:
+	call	LEDsOff
 	movlw	0x00
 	cpfseq	mode, A
 	bra	codeEntryDisplayEnterCodeMode2
@@ -349,15 +349,22 @@ codeEntryDisplayEnterCodeMode2:
 	movlw	enterNewCodeScreen
 	bra	codeEntryDisplayExit
 codeEntryDisplayOneStar:
+	movf	codeCounter, W, A
+	call	LEDProgress
 	movlw	oneStarScreen
 	bra	codeEntryDisplayExit
 codeEntryDisplayTwoStar:
+	movf	codeCounter, W, A
+	call	LEDProgress
 	movlw	twoStarScreen
 	bra	codeEntryDisplayExit
 codeEntryDisplayThreeStar:
+	movf	codeCounter, W, A
+	call	LEDProgress
 	movlw	threeStarScreen
 	bra	codeEntryDisplayExit
 codeEntryDisplayFourStar:
+	call	LEDsOn
 	movlw	fourStarScreen
 	bra	codeEntryDisplayExit
 codeEntryDisplayExit:
@@ -400,7 +407,8 @@ checkEnteredCode:
 	; display the correct screen
 	movlw	fourStarScreen
 	call	updateLCD
-	
+	; switch LEDs off
+	call	LEDsOff
 	; reset the code counter, since it will be used here
 	movlw	0x00
 	movwf	codeCounter, A
