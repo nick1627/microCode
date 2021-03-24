@@ -87,11 +87,11 @@ setup:
 	movlw	0x00
 	movwf	mode, A
 	
-	movlw	0xFF		; set the alarm to be on initially
+	movlw	0xFF			; set the alarm to be on initially
 	movwf	alarmFlag, A
 	
-	call	resetTimer	; timer must be set to its maximum
-				; initially.
+	call	resetTimer		; timer must be set to its maximum
+					; initially.
 	
 	call	resetAttemptCounter	; the attempt counter should be 0 
 					; initially
@@ -124,8 +124,10 @@ setup:
 	alarmScreen1		EQU 16
 	alarmScreen2		EQU 17
 	
-	movlw	100		; initialise value of currentScreen
-	movwf	currentScreen, A; to match the first screen displayed
+	movlw	100			; initialise value of currentScreen
+	movwf	currentScreen, A	; to mismatch the first screen displayed
+					; (if they matched, the first screen
+					; would not be displayed)
 	
 	
 	goto	start

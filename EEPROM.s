@@ -11,7 +11,7 @@ psect	EEPROM_code, class=CODE	;===============================================
 readEEPROM: 
     ; read data in EEPROM (@EEAddr) to storedKey	    
 	; specify EEPROM address to be written-in with EEADR
-	banksel	EECON1			; select EEPROM memory bank 
+	; banksel	EECON1			; select EEPROM memory bank 
 	clrf	EEADR, A		; reset set address in EEPROM at 0x0000
 	clrf	EEADRH, A
 	
@@ -22,13 +22,15 @@ readEEPROM:
 	lfsr	1, storedKey		; load FSR1 with storedKey memory location -- CHANGE TEST KEY
 	movlw	codeLength
 	movwf	EECounter, A		; load counter with the number of keys (4)
-	incf	EEADR, A		; read/write begins at location: 0x0001
+	; incf	EEADR, A		; read/write begins at location: 0x0001
 
 readLp:	; loop to read data for each key 
 	bsf	RD			; initialise read cycle 
 	nop				; leave one cycle for reading 
-	movf	EEDATA, W, A		; move data to FSR1 (storedKey)
-	movwf	POSTINC1, A
+;	movf	EEDATA, W, A		; move data to location indicated by FSR1 (storedKey)
+;	movwf	POSTINC1, A
+	
+	movff	EEDATA, POSTINC1, A
 	
 	incf	EEADR, A		; increment EEADR to the next location in EE
 	decfsz	EECounter, A
@@ -41,7 +43,7 @@ readLp:	; loop to read data for each key
 writeEEPROM:
     ; write data from storedKey to EEPROM (@EEAddr)
 	; specify EEPROM address to be written-in with EEADR
-	banksel	EECON1		    ; select EEPROM memory bank
+	; banksel	EECON1		    ; select EEPROM memory bank
 	clrf	EEADR, A		    ; reset set address in EEPROM at 0x0000
 	clrf	EEADRH, A
 	
@@ -54,7 +56,7 @@ writeEEPROM:
 	lfsr	1, storedKey	    ; load FSR1 with storedKey memory location
 	movlw	codeLength
 	movwf	EECounter, A	    ; load counter with the number of keys (4)
-	incf	EEADR, A		    ; read/write begins at location: 0x0001
+	; incf	EEADR, A		    ; read/write begins at location: 0x0001
 	
 writeLp:; loop to write data for ecah key 
 	movf	POSTINC1, W, A	    ; move 8-bit data from storedKey to EEDATA
