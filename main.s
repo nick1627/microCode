@@ -724,7 +724,7 @@ checkForKeyPressBlockInput:
 	bra	checkForKeyPressExit
 checkForKeyPressExit:	
 	bcf	TMR0IF		; clear interrupt flag
-	retfie	f		;return from interrupt
+	retfie	f		; return from interrupt
 	
 	
 	

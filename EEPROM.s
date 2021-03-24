@@ -71,7 +71,7 @@ writeLp:; loop to write data for ecah key
 	
 	incf	EEADR, A		; increment EEADR to the next location
 	decfsz	EECounter, A		; decrement counter and
-	bra	readLp			;	repeat for all keys
+	bra	writeLp			; repeat for all keys
 	
 	; reset system and return 
 	bsf	GIE			; enable interupt again
