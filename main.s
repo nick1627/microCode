@@ -29,16 +29,16 @@ setup:
 ;=======Main Programme==========================================================
 
 start: 
-	;call	readEEPROM
-	;movff	testKey, PORTD
+	call	readEEPROM
+	movff	testKey, PORTD
 
-	movlw	1
+	movlw	25
 	movwf	storedKey, A
-	movlw	2
+	movlw	6
 	movwf	storedKey+1, A
-	movlw	3
+	movlw	7
 	movwf	storedKey+2, A
-	movlw	4
+	movlw	8
 	movwf	storedKey+3, A
 	
 	call	writeEEPROM	

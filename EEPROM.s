@@ -19,10 +19,10 @@ readEEPROM:
 	clrf	EECON1		    ; clears EEPGD/CFGS to select EEPROM memory
 
 	; read EEADR to EEADR+4 into testKey in FSR1
-	lfsr	1, testKey	    ; load FSR1 with storedKey memory location -- CHANGE TEST KEY
+	lfsr	1, storedKey	    ; load FSR1 with storedKey memory location -- CHANGE TEST KEY
 	movlw	codeLength
 	movwf	EECounter, A	    ; load counter with the number of keys (4)
-	incf	EEADR		    ; read/write begins at location: 0x0001
+	;;incf	EEADR		    ; read/write begins at location: 0x0001
 
 readLp:	; loop to read data for each key 
 	bsf	RD		    ; initialise read cycle 
@@ -54,7 +54,7 @@ writeEEPROM:
 	lfsr	1, storedKey	    ; load FSR1 with storedKey memory location
 	movlw	codeLength
 	movwf	EECounter, A	    ; load counter with the number of keys (4)
-	incf	EEADR		    ; read/write begins at location: 0x0001
+	;;incf	EEADR		    ; read/write begins at location: 0x0001
 	
 writeLp:; loop to write data for ecah key 
 	movf	POSTINC1, W, A	    ; move 8-bit data from storedKey to EEDATA
