@@ -1,5 +1,9 @@
+; This is the main part of the script for the lock.
+; Written by Hana Douglas and Nick Rayns, 24/3/2020
+
 #include <xc.inc>
 
+; Define external functions to be imported
 extrn	LCDSetup, LCDWrite
 extrn	keypadSetup, checkKey
 extrn	peripheralSetup, buzz, LEDProgress, LEDFlash, LEDDelay, LEDsOn, LEDsOff
@@ -7,9 +11,10 @@ extrn	buzzOn, buzzOff
 extrn	resetPeripherals
 extrn	readEEPROM, writeEEPROM
 
+; define the memory locations/variables to be available globally
 global	storedKey, codeLength
     
-psect	udata_acs   ; reserve data space in access ram
+psect	udata_acs		; reserve data space in access ram
 storedKey:		ds 4    ; reserve 4 bytes for 4 digit stored keycode
 inputKey:		ds 4    ; reserve 4 bytes for inputted 4 digits stored 
 				; keycode
@@ -36,13 +41,16 @@ newKey:			ds 1	; Stores the most recent single key press value
 			
 
 psect	code, abs	
-init: 	org	0x00
+init: 	org	0x00		; This is the first instruction.
  	goto	setup
 
 intHigh:	
 	org	0x0008			; high priority interrupt triggered by 
 					; timer
-	goto	checkForKeyPress	; store keypad input
+	goto	checkForKeyPress	; On interrupt, we go to this subroutine
+					; to check if a key is being pressed.
+					; The interrupt is at a frequency of
+					; 500kHz
 
 ;=======Setup I/O===============================================================
 
@@ -51,14 +59,14 @@ setup:
 	bcf	CFGS	        ; point to Flash program memory  
 	bsf	EEPGD		; access Flash program memory
 	
-	call	LCDSetup	; setup LCD
-	call	keypadSetup	; setup keypad
-	call	peripheralSetup	; setup other electronics
+	call	LCDSetup	; set up LCD
+	call	keypadSetup	; set up keypad
+	call	peripheralSetup	; set up other electronics
 	
 	clrf	TRISC, A	; port-C as output for lock/unlock
 	
 	; Set up the timer interrupt
-	movlw	10000101B	; configure rules for timer - CHECK THE TIMING!
+	movlw	10000100B	; configure rules for timer. Use 500kHz.
 	movwf	T0CON, A
 	bsf	TMR0IE		; enable timer 0 interrupts
 	bsf	GIE		; globally enable all interrupts with high 
@@ -78,32 +86,41 @@ setup:
 	
 	; initialise contents of code counter
 	movlw	0x00
-	movwf	codeCounter, A
+	movwf	codeCounter, A		; code counter set to 0
 	
-	codeLength EQU 0x04
+	codeLength EQU 0x04		; codeLength is the length of the stored
+					; code, equal to 4 digits.
  
-	call	resetFSRs
+	call	resetFSRs		; reset FSRs 0 and 1 to point to the 
+					; locations where the passcodes are 
+					; stored.
 	
-	movlw	0x00
-	movwf	mode, A
+	movlw	0x00			; Set the mode to be 0 initially, i.e.
+	movwf	mode, A			; requesting entry of a code
+					
 	
 	movlw	0xFF			; set the alarm to be on initially
 	movwf	alarmFlag, A
 	
-	call	resetTimer		; timer must be set to its maximum
+	call	resetTimer		; timer must be set to its maximum value
 					; initially.
 	
-	call	resetAttemptCounter	; the attempt counter should be 0 
-					; initially
+	call	resetAttemptCounter	; The attempt counter should be 0 
+					; initially, since no attempts at code
+					; entry have yet been made.
 					
-        call	resetPeripherals
+        call	resetPeripherals	; Just in case, any peripherals that
+					; retained their state from a previous
+					; debugging session are reset here.
 	
 	
 	
-	; screen options
-	; intro
+	; We write messages to the screen in one go.  Therefore we number the 
+	; possible screens to display, and also refer to them by names which are
+	; given below:
+	; Intro screen that shows on startup
 	welcomeScreen		EQU 0
-	; mode 0 (mostly)
+	; mode 0 (mostly) - Entry of the code to gain access
 	enterCodeScreen		EQU 1
 	oneStarScreen		EQU 2
 	twoStarScreen		EQU 3
@@ -112,15 +129,16 @@ setup:
 	codeCorrectScreen	EQU 6
 	codeIncorrectScreen	EQU 7
 	outOfTimeScreen		EQU 8
-	; mode 1
+	; mode 1 - presenting options to the user
 	optionScreen		EQU 9
 	changeCodeScreen	EQU 10
 	changeAlarmScreen	EQU 11
 	alarmOnScreen		EQU 12
 	alarmOffScreen		EQU 13
-	; mode 2
+	; mode 2 - requesting entry of new code
 	enterNewCodeScreen	EQU 14
 	newCodeSetScreen	EQU 15
+	; mode 3 - alarm has been set off
 	alarmScreen1		EQU 16
 	alarmScreen2		EQU 17
 	
@@ -130,27 +148,21 @@ setup:
 					; would not be displayed)
 	
 	
-	goto	start
+	goto	start			; Initial variables have been set.  Now
+					; ready to begin main program.
 	
-;=======Main Programme==========================================================
+;==============================Main Program=====================================
 
 start: 
-	movlw	welcomeScreen
+	movlw	welcomeScreen		; Display the welcome screen
 	call	updateLCD
-	call	buzz
-	; delay
-	call	delay16RepeaterQuarter
-	goto	mainLoop
+	call	buzz			; Make a noise
+	call	delay16RepeaterQuarter	; Short delay
+	goto	mainLoop		; Enter the main loop
 
-	; debug section
-	
-	
-
-	
-	
 	
 mainLoop:
-	; select which mode we're in
+	; Branch based on the current mode
 	movlw	0x00
 	cpfsgt	mode, A
 	bra	mode0	; code entry mode, designated 0
@@ -162,7 +174,9 @@ mainLoop:
 	bra	mode2	; new code entry mode, designated 2
 	bra	mode3	; alarm mode, designated 3
 mode0:    
-	; check code counter
+	; In mode 0, we expect the code to be entered in order for the user to
+	; gain access.
+	
 	; if code counter = 4, do the code checking sequence
 	movlw	codeLength
 	cpfslt	codeCounter, A
@@ -186,8 +200,8 @@ mode0:
 	; now loop back to the beginning
 	goto	mainLoop
 mode1:	
-	; in this mode, we are presented with options to change the code,
-	; mute the alarm etc
+	; in this mode, we are presented with options to change the code and
+	; mute/enable the alarm
 	
 	movlw	0x00
 	cpfseq	timerFinished, A
@@ -195,18 +209,20 @@ mode1:
 	bra	mode1Exit
 	; time has not run out, so offer options
 	call	selectOptionScreen
-
-	
+	; decrement the timer by 1 each loop until it has run out
 	call	decrementTimer
 	
 	goto	mainLoop
 mode1Exit:	
+	; upon exiting mode 1, we must lock the lock
+	call	lock
+	; switch back to mode 0
 	call	switchMode0
 	goto	mainLoop
 	
 mode2:	
-	; in this mode, we can change the code.
-	; if the time runs out, we switch back to the locked mode
+	; In this mode, we can change the code.
+	; If the time runs out, we switch back to the locked mode
 	
 	; first display the correct screen depending on the entered 
 	; code progress
@@ -228,16 +244,20 @@ mode2:
 	; otherwise loop back to the beginning
 	goto	mainLoop
 mode2Exit:
-	; reset input codes etc
+	; Reset input codes etc
 	call	timeOut
-	; switch to mode 0
+	; Lock the lock
+	call	lock
+	; Switch to mode 0
 	call	switchMode0
 	goto	mainLoop
 mode3:	
-	; at this point, the alarm must sound because there have been 
+	; At this point, the alarm must sound because there have been 
 	; sufficiently many incorrect attempts at gaining entry
 	
-	; the alarm sounds for a certain amount of time
+	; the alarm sounds for a certain amount of time, governed by the timer.
+	; This is approximately 55 seconds using 24 bits initially set to FFFFFF
+	; that decrement by 1 each time we loop through mode 3.
 	call	decrementTimer
 	; only turn on the alarm if the alarmFlag is True.
 	movlw	0xFF
@@ -245,31 +265,35 @@ mode3:
 	; skip sounding the alarm if the alarm flag is false
 	bra	mode3FlashLEDs
 mode3SoundAlarm:
-	; sound the alarm
+	; Sound the alarm
+	; By switching the alarm on or off based on one of the bits in the
+	; timer, since mode 3 is looped through quickly, the 'drum' of the
+	; buzzer will vibrate quickly enough to produce sound.  Changing the 
+	; bit to set would change the frequency.
 	btfss	timer+2, 7, A
 	bra	mode3SoundAlarmOn
 	bra	mode3SoundAlarmOff
-mode3SoundAlarmOn:
+mode3SoundAlarmOn: ; turn buzzer on
 	call	buzzOn
 	bra	mode3FlashLEDs
-mode3SoundAlarmOff:
+mode3SoundAlarmOff: ; turn buzzer off
 	call	buzzOff
 	bra	mode3FlashLEDs
 mode3FlashLEDs:
-	; flash the LEDs based on the timer
-	; simulateously change the screen message
+	; Flash the LEDs based on the timer.  Also simultaneously change the 
+	; message displayed on the LCD.
 	btfss	timer, 1, A
 	bra	mode3FlashLEDsOn
 	bra	mode3FlashLEDsOff
 mode3FlashLEDsOff:
-	movlw	alarmScreen1
+	movlw	alarmScreen1	; change screen
 	call	updateLCD
-	call	LEDsOff
+	call	LEDsOff		; turn LEDs off
 	bra	mode3End
 mode3FlashLEDsOn:
-	movlw	alarmScreen2
+	movlw	alarmScreen2	; change screen
 	call	updateLCD
-	call	LEDsOn
+	call	LEDsOn		; turn LEDs on
 	bra	mode3End
 mode3End:	
 	; leave mode 3 if the timer has run out
@@ -283,6 +307,7 @@ mode3End:
 mode3Exit:
 	call	resetPeripherals
 	call	resetAttemptCounter
+	call	lock
 	call	switchMode0
 	goto	mainLoop
 	
@@ -419,8 +444,8 @@ codeIncorrect:
 
 	
 appendEnteredCode:
-	;Append the code that has been entered into the keypad
-	;assume w register contains the new code
+	; Append the code that has been entered into the keypad
+	; assume w register contains the new code
 	movwf	POSTINC0, A
 	return
 
@@ -549,7 +574,6 @@ setNewCodeExit:
 	call	resetEnteredCode
 	call	switchMode0
 	call	lock
-	; DELAY?
 	goto	mainLoop
 
 resetFSRs:
