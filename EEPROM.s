@@ -1,5 +1,9 @@
+;===============================================================================
+;* Includes function to read/write to non-volatile memory (EEPROM)	      *
+;*									      *
+;* Uses PIC EEPROM							      *
+;===============================================================================
 #include <xc.inc>
-
 extrn		storedKey, codeLength
 global		readEEPROM, writeEEPROM 
 
@@ -27,7 +31,7 @@ readLp:	; loop to read data for each key
 	nop				; leave one cycle for reading 
 	movff	EEDATA, POSTINC1, A	; move data to storedKey pointed by FSR1
 	
-	incf	EEADR, A		; move to the next location in EE
+	incf	EEADR, A		; increment EEADR to the next location
 	decfsz	EECounter, A		; decrement counter and
 	bra	readLp			;	repeat for all keys
 	
@@ -55,24 +59,22 @@ writeLp:; loop to write data for ecah key
 	movf	POSTINC1, W, A		; move data from storedKey to EEDATA
 	movwf	EEDATA, A		    
 	
-	movlw	0x55		    ; required sequence for writing to EEPROM
+	movlw	0x55			; required sequence for EEPROM write
 	movwf	EECON2, A
 	movlw	0xAA
 	movwf	EECON2, A
-	bsf	WR		    ; initialise write cycle 
+	bsf	WR			; initialise write cycle 
+	btfsc	WR			; check if writing is done
+	bra	$-2			; wait until write-completed flag is up
+	bcf	WRERR			; clear writing error flag	
+	bcf	EEIF			; clear EEPROM interrupt flag
 	
-	btfsc	WR		    ; check if writing is done
-	bra	$-2		    ; wait until write-completed flag is up
-	bcf	WRERR		    ; clear writing error flag	
-	bcf	EEIF		    ; clear EEPROM interrupt flag
-	
-	incf	EEADR, f, A	    ; increment EEADR to the next location
-	decfsz	EECounter, A	    
-	bra	writeLp		    ; repeat for all (4) keys
+	incf	EEADR, A		; increment EEADR to the next location
+	decfsz	EECounter, A		; decrement counter and
+	bra	readLp			;	repeat for all keys
 	
 	; reset system and return 
-	bsf	GIE		; enable interupt again
-	clrf	EECON1, A	; clears WREN to disable write-in to EEPROM 
-	bsf	EEPGD		; reset EEPGD to select flash data memory 
-
+	bsf	GIE			; enable interupt again
+	clrf	EECON1, A		; clear WREN to disable  EEPROM writing 
+	bsf	EEPGD			; reset EEPGD to select flash data 
 	return 

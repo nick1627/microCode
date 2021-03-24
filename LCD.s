@@ -1,12 +1,15 @@
+;===============================================================================
+;* Includes function to write to 16x2 Character Hitachi LCD		      *
+;* Based off of github.com/ImperialCollegeLondon/MicroprocessorsLab	      *
+;*									      *
+;* LCD hardwired to Port-B pints RB0-5					      *
+;===============================================================================
 #include <xc.inc>
-
 global  LCDSetup, LCDWrite
 
 psect	udata_acs;================================named variables in access ram=
-LCD_cnt_l:	ds 1	; reserve 1 byte for variable LCD_cnt_l
-LCD_cnt_h:	ds 1	; reserve 1 byte for variable LCD_cnt_h
-LCD_cnt_ms:	ds 1	; reserve 1 byte for ms counter
-LCD_tmp:	ds 1	; reserve 1 byte for temporary use
+delayCounter:	ds 3	; reserve 3 bytes for delay counters
+LCDtmp:		ds 1	; reserve 1 byte for temporary use
 LCDcounter:	ds 1	; reserve 1 byte for counting through message
 messageSel:	ds 2	; reserve 1 byte for message option number from W
     
@@ -97,10 +100,10 @@ myMessage:
 	db	' ',' ',' ',' ',' ',' ',' ',' '
 	db	'-','-','N','E','W',' ','C','O','D','E',' ','S','E','T','-','-'
 ; 16 - alarm screen 1
-	db	0x11,0x11,'U','N','A','U','T','H','O','R','I','S','E','D',0x11,0x11
-	db	' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
-	db	' ',' ',' ',' ',' ',' ',' ',' '
-	db	0x11,0x11,0x11,0x11,0x11,'A','C','C','E','S','S',0x11,0x11,0x11,0x11,0x11
+	db	0x11,0x11,'U','N','A','U','T','H','O','R','I','S','E','D',0x11
+	db	0x11,' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
+	db	' ',' ',' ',' ',' ',' ',' ',' ',' ',0x11,0x11
+	db	0x11,0x11,0x11,'A','C','C','E','S','S',0x11,0x11,0x11,0x11,0x11
 ; 17 - alarm screen 2
 	db	' ',' ','U','N','A','U','T','H','O','R','I','S','E','D',' ',' '
 	db	' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '
@@ -109,8 +112,7 @@ myMessage:
 	
 	align	2		; Align instruction and location in PM again 
 
-psect	LCDcode, class=CODE
-	
+psect	LCDcode, class=CODE ; LCD Code =========================================
 ;=======LCD Setup===============================================================
 LCDSetup:
 	clrf    LATB, A
@@ -158,10 +160,9 @@ LCDWrite:
 	
 	return 
 
-;=======Main Programme==========================================================
+;=======LCD Sub-Routines========================================================
 loadMessage:
 ; Load message at messageSel to TABLE 
-
 	movlw	low(myMessage)		    
 	addwf	messageSel, A		    ; add relative loc to memory loc
 	movff	messageSel, TBLPTRL, A	    ; load low byte to TBLPTRL	
@@ -170,7 +171,6 @@ loadMessage:
 	movff	messageSel+1, TBLPTRH, A    ; load high byte to TBLPTRH
 	movlw	low highword(myMessage)	    ; address of data in PM
 	movwf	TBLPTRU, A		    ; load upper bits to TBLPTRU as is
-	
 	return
 
 writeMessage: 
@@ -183,53 +183,37 @@ writeMessage:
 	return 
 	
 LCDClear:
-; Clears the LCD Screen 
+    ; Clears the LCD Screen 
 	movlw	00000001B		    ; clear display instruction
 	call	LCDInstructionSend
 	movlw	2			    ; wait 2ms
 	call	LCDDelayMs
 	return 
-
-;flash:  ; Subroutine that makes text flash 
-;	movlw	0xff		; repeats 256 times
-;	movwf	counter, A
-;fLoop: 
-;;	call	LCD_Clear	; clear display
-;	movlw	0x33
-;	call	bigDelay	; wait
-;	movlw	myTable_l	; output message to LCD
-;	addlw	0xff		; don't send the final carriage return to LCD
-;	lfsr	2, myArray
-;	call	LCD_Write_Message   ; write message
-;	movlw	0x33
-;	call	bigDelay	; wait
-;	decfsz	counter, A
-;	bra	fLoop
-;	return
 	
-LCDInstructionSend:	    ; Transmits byte stored in W to instruction reg
-	movwf   LCD_tmp, A
-	swapf   LCD_tmp, W, A   ; swap nibbles, high nibble goes first
-	andlw   0x0f	    ; select just low nibble
-	movwf   LATB, A	    ; output data bits to LCD
-	bcf	LATB, LCDRS, A	; Instruction write clear RS bit
-	call    LCDEnable  ; Pulse enable Bit 
-	movf	LCD_tmp, W, A   ; swap nibbles, now do low nibble
-	andlw   0x0f	    ; select just low nibble
-	movwf   LATB, A	    ; output data bits to LCD
-	bcf	LATB, LCDRS, A	; Instruction write clear RS bit
-        call    LCDEnable  ; Pulse enable Bit 
+LCDInstructionSend:	    
+    ; Transmits byte stored in W to instruction reg
+	movwf   LCDtmp, A
+	swapf   LCDtmp, W, A		; swap nibbles, high nibble goes first
+	andlw   0x0f			; select just low nibble
+	movwf   LATB, A			; output data bits to LCD
+	bcf	LATB, LCDRS, A		; Instruction write clear RS bit
+	call    LCDEnable		; Pulse enable Bit 
+	movf	LCDtmp, W, A		; swap nibbles, now do low nibble
+	andlw   0x0f			; select just low nibble
+	movwf   LATB, A			; output data bits to LCD
+	bcf	LATB, LCDRS, A		; Instruction write clear RS bit
+        call    LCDEnable		; Pulse enable Bit 
 	return
 
 LCDDataSend:	   
 	; Transmits byte stored in W to data reg
-	movwf   LCD_tmp, A
-	swapf   LCD_tmp, W, A	; swap nibbles, high nibble goes first
+	movwf   LCDtmp, A
+	swapf   LCDtmp, W, A	; swap nibbles, high nibble goes first
 	andlw   0x0f		; select just low nibble
 	movwf   LATB, A		; output data bits to LCD
 	bsf	LATB, LCDRS, A	; Data write set RS bit
 	call    LCDEnable	; Pulse enable Bit 
-	movf	LCD_tmp, W, A	; swap nibbles, now do low nibble
+	movf	LCDtmp, W, A	; swap nibbles, now do low nibble
 	andlw   0x0f		; select just low nibble
 	movwf   LATB, A		; output data bits to LCD
 	bsf	LATB, LCDRS, A	; Data write set RS bit	    
@@ -237,9 +221,10 @@ LCDDataSend:
 	movlw	10		; delay 40us
 	call	LCDDelayX4us
 	return
-	
+
+;=======LCD Delay Routines======================================================
 LCDEnable:	    
-	; Pulse enable bit LCD_E for 500ns
+    ; Pulse enable bit LCDE for 500ns
 	nop
 	nop
 	nop
@@ -248,7 +233,7 @@ LCDEnable:
 	nop
 	nop
 	nop
-	bsf	LATB, LCDE, A	    ; Take enable high
+	bsf	LATB, LCDE, A		; Take enable high
 	nop
 	nop
 	nop
@@ -256,33 +241,35 @@ LCDEnable:
 	nop
 	nop
 	nop
-	bcf	LATB, LCDE, A	    ; Writes data to LCD
+	bcf	LATB, LCDE, A		; Writes data to LCD
 	return
     
-; ** a few delay routines below here as LCD timing can be quite critical ****
-LCDDelayMs:		    ; delay given in ms in W
-	movwf	LCD_cnt_ms, A
-lcdlp2:	movlw	250	    ; 1 ms delay
+LCDDelayMs:		    
+    ; Delay given in ms in W
+	movwf	delayCounter, A
+lcdlp2:	movlw	250			; 1 ms delay
 	call	LCDDelayX4us	
-	decfsz	LCD_cnt_ms, A
+	decfsz	delayCounter, A
 	bra	lcdlp2
 	return
     
-LCDDelayX4us:		    ; delay given in chunks of 4 microsecond in W
-	movwf	LCD_cnt_l, A	; now need to multiply by 16
-	swapf   LCD_cnt_l, F, A	; swap nibbles
+LCDDelayX4us:		    
+    ; delay given in chunks of 4 microsecond in W
+	movwf	delayCounter+1, A	; now need to multiply by 16
+	swapf   delayCounter+1, F, A	; swap nibbles
 	movlw	0x0f	    
-	andwf	LCD_cnt_l, W, A ; move low nibble to W
-	movwf	LCD_cnt_h, A	; then to LCD_cnt_h
+	andwf	delayCounter+1, W, A	; move low nibble to W
+	movwf	delayCounter+2, A	; then to delayCounter+2
 	movlw	0xf0	    
-	andwf	LCD_cnt_l, F, A ; keep high nibble in LCD_cnt_l
+	andwf	delayCounter+1, F, A	; keep high nibble in delayCounter+1
 	call	LCDDelay
 	return
 
-LCDDelay:			; delay routine	4 instruction loop == 250ns	    
-	movlw 	0x00		; W=0
-lcdlp1:	decf 	LCD_cnt_l, F, A	; no carry when 0x00 -> 0xff
-	subwfb 	LCD_cnt_h, F, A	; no carry when 0x00 -> 0xff
-	bc 	lcdlp1		; carry, then loop again
-	return			; carry reset so return
+LCDDelay:			
+    ; delay routine - 4 instruction loop == 250ns	    
+	movlw 	0x00			; W=0
+lcdlp1:	decf 	delayCounter+1, F, A	; no carry when 0x00 -> 0xff
+	subwfb 	delayCounter+2, F, A	; no carry when 0x00 -> 0xff
+	bc 	lcdlp1			; carry, then loop again
+	return				; carry reset so return
 

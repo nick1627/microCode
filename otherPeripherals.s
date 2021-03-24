@@ -1,10 +1,14 @@
+;===============================================================================
+;* Includes function to access other peripherals: LED, Buzzer		      *
+;*									      *
+;* Buzzer hard-wired to RB6 |  LED connected to Port-D RD0-P0		      *
+;===============================================================================
 #include <xc.inc>
-
 global	peripheralSetup, buzz, LEDProgress, LEDFlash, LEDDelay, LEDsOn, LEDsOff
 global	buzzOn, buzzOff
 global	resetPeripherals
 
-psect	udata_acs		; reserve data space in access ram
+psect	udata_acs;================================named variables in access ram=
 progress:	ds 1	
 delayCounter:	ds 3
 flashTimes:	ds 1
@@ -15,16 +19,14 @@ buzzFreq	EQU 80		; relative buzzer frequency
 flashFreq	EQU 0x15	; relative flash frequency
 flashFor	EQU 5		; relative flash duration
 	
-psect	LED_code, class=CODE
-
+psect	LED_code, class=CODE ; =================================================
 peripheralSetup: 
 	clrf    TRISD, A	; set port-D as output for LEDs
-;	clrf	LATB, A		; done in LCD.s
 	movlw	10000000B	; update LCD.s (11000000B)
 	movwf	TRISB, A    
 
 buzz: 
-; resonant frequency ~3.8kHz (need to calculate and change buzzFreq)
+; makes a little buzz noise (resonant frequency ~3.8kHz)
 	movlw	0xff
 	movwf	buzzTime, A	; duration of buzz
 buzzF:
@@ -68,31 +70,31 @@ LEDProgress:
     
 	movwf	progress, A 
 	
-	movlw	0		; LED OFF
+	movlw	0		; no keys entered
 	cpfseq	progress, A
 	goto	$ + 8
 	clrf	PORTD, A	; All pins OFF
 	return 
 	
-	movlw	1
+	movlw	1		; 1 correct key entered
 	cpfseq	progress, A
 	goto	$ + 10
 	movlw	00000011B
-	movwf	PORTD, A
+	movwf	PORTD, A	; 1/4 lights on
 	return 
 	
-	movlw	2
+	movlw	2		; 2 correct keys entered
 	cpfseq	progress, A
 	goto	$ + 10
 	movlw	00001111B
-	movwf	PORTD, A	
+	movwf	PORTD, A	; 2/4 lights on
 	return 
 	
-	movlw	3
+	movlw	3		; 3 correct keys entered
 	cpfseq	progress, A
 	goto	$ + 10
 	movlw	00111111B
-	movwf	PORTD, A	
+	movwf	PORTD, A	; 3/4 lights on
 	return 
 	
 	setf	PORTD, A	; ALL pins ON 
@@ -110,15 +112,13 @@ flashLp:
 	bra	flashLp
 	return 
 	
-	
 LEDsOn:
 	setf	PORTD, A
 	return
 
 LEDsOff: 
 	clrf	PORTD, A
-	return	
-	
+	return		
 	
 		
 LEDDelay: 
