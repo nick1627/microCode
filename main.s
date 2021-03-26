@@ -215,6 +215,7 @@ mode1:
 mode1Exit:	
 	; upon exiting mode 1, we must lock the lock
 	call	lock
+	call	timeOut
 	; switch back to mode 0
 	call	switchMode0
 	goto	mainLoop
