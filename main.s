@@ -49,7 +49,7 @@ intHigh:
 	goto	checkForKeyPress	; On interrupt, we go to this subroutine
 					; to check if a key is being pressed.
 					; The interrupt is at a frequency of
-					; 500kHz
+					; 1MHz
 
 ;=======Setup I/O===============================================================
 
@@ -65,7 +65,7 @@ setup:
 	clrf	TRISC, A	; port-C as output for lock/unlock
 	
 	; Set up the timer interrupt
-	movlw	10000011B	; configure rules for timer. Use 500kHz.
+	movlw	10000011B	; configure rules for timer. Use 1MHz.
 	movwf	T0CON, A
 	bsf	TMR0IE		; enable timer 0 interrupts
 	bsf	GIE		; globally enable all interrupts with high 
