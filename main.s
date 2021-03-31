@@ -1,6 +1,11 @@
-; This is the main part of the script for the lock.
-; Written by Hana Douglas and Nick Rayns, 24/3/2020
-
+;===============================================================================
+;* Main script for digital lock						      *
+;* github.com/nick1627/microCode/tree/Lock				      *
+;*									      *
+;* Project includes: LCD.s, keypad.s, EEPROM.s, otherPeripherals.s	      *
+;* Authors	   : Hana Douglas and Nick Rayns			      *
+;* Last Updates    : 24/03/2021						      *
+;===============================================================================
 #include <xc.inc>
 
 ; Define external functions to be imported
