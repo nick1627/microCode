@@ -275,7 +275,7 @@ mode3SoundAlarm:
 	; timer, since mode 3 is looped through quickly, the 'drum' of the
 	; buzzer will vibrate quickly enough to produce sound.  Changing the 
 	; bit to set would change the frequency.
-	btfss	timer+2, 7, A
+	btfss	timer+2, 6, A
 	bra	mode3SoundAlarmOn
 	bra	mode3SoundAlarmOff
 mode3SoundAlarmOn: ; turn buzzer on
