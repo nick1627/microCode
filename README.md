@@ -1,9 +1,8 @@
 # Digital Lock Project
-Authors:     Nicholas Rayns
-
-             Hana Douglas
+Authors:     Nicholas Rayns \\
+             Hana Douglas \\
              
-Last Update: 26/03/2021
+Last Update: 26/03/2021 \\ 
 
           
 This repository includes all XC8 Assembly files necessary for programming a PIC18F87K22 microcontroller as a digital security lock. Some files have been expanded from the Microcontroller Labs repository by Imperial College London https://github.com/ImperialCollegeLondon/MicroprocessorsLab.
@@ -16,8 +15,8 @@ The security lock is connected to a locking mechanism that opens when voltage is
 
 Applications and tools required: 
 
-MPLAB XC8 IDE
-MPLAB XC8 IPE 
+MPLAB XC8 IDE \\
+MPLAB XC8 IPE \\
 PIC18F87K22 Microcontroller
 PICKIT4 In-Circuit Debugger 
 
