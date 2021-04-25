@@ -310,6 +310,8 @@ mode3End:
 	; otherwise loop back to the beginning
 	goto	mainLoop
 mode3Exit:
+	; Now exiting mode 3.  Need to do some resetting, lock the lock
+	; switch to mode 0 and go to the main loop.
 	call	resetPeripherals
 	call	resetAttemptCounter
 	call	lock
@@ -318,9 +320,12 @@ mode3Exit:
 	
 	
 timeOut:
+	; Timer has run out.  Reset the entered code and update the screen
+	; to notify the user.
 	call	resetEnteredCode
 	movlw	outOfTimeScreen
 	call	updateLCD
+	; delay to make message visible
 	call	delay16RepeaterQuarter
 	return
 	
@@ -329,6 +334,8 @@ timeOut:
 codeEntryDisplay:
 	; this subroutine determines which display is to be presented to the 
 	; user on code entry, whether in modes 0 or 2
+	; First we branch based on the value of the code counter, to know how
+	; many asterisks to display
 	movlw	0x00
 	cpfsgt	codeCounter, A
 	bra	codeEntryDisplayEnterCode
@@ -343,20 +350,26 @@ codeEntryDisplay:
 	bra	codeEntryDisplayThreeStar
 	bra	codeEntryDisplayFourStar
 codeEntryDisplayEnterCode:
+	; in the case of mode 0, we display different screens depending on the 
+	; current mode.  So branch depending on the mode.
 	call	LEDsOff
 	movlw	0x00
 	cpfseq	mode, A
 	bra	codeEntryDisplayEnterCodeMode2
 	bra	codeEntryDisplayEnterCodeMode0
 codeEntryDisplayEnterCodeMode0:
+	; Move the correct screen value to W register
     	movlw	enterCodeScreen
+	; branch to the exit
 	bra	codeEntryDisplayExit
 codeEntryDisplayEnterCodeMode2:
 	movlw	enterNewCodeScreen
 	bra	codeEntryDisplayExit
 codeEntryDisplayOneStar:
+	; Set the number of lit LEDs to match the number of entered keys
 	movf	codeCounter, W, A
 	call	LEDProgress
+	; display the relevant screen
 	movlw	oneStarScreen
 	bra	codeEntryDisplayExit
 codeEntryDisplayTwoStar:
@@ -374,6 +387,7 @@ codeEntryDisplayFourStar:
 	movlw	fourStarScreen
 	bra	codeEntryDisplayExit
 codeEntryDisplayExit:
+	; update the LCD using the screen value in W register
 	call	updateLCD
 	return
 	
@@ -381,11 +395,11 @@ codeEntryDisplayExit:
 	
 	
 ; switching modes	
-switchMode0:
+switchMode0: ; switch to mode 0
 	movlw	0x00
 	movwf	mode, A
 	return
-switchMode1:
+switchMode1: ; switch to mode 1
 	movlw	0x01
 	movwf	mode, A
 	; use same timer for modes 1, 2 and 3
@@ -421,12 +435,17 @@ checkEnteredCode:
 	; also reset the FSRs relating to the two codes to compare
 	call	resetFSRs
 checkEnteredCodeLoop:
+	; check each digit of the entered code against the stored code in turn.
 	movf	POSTINC0, W, A
 	cpfseq	POSTINC1, A
+	; if the values do not match, the code is incorrect
 	bra	codeIncorrect
+	; otherwise continue to the next value if there is one.
 	incf	codeCounter, A
 	movlw	codeLength
 	cpfseq	codeCounter, A
+	; if we have not reached the end of the code, loop back and check the
+	; next digit
 	bra	checkEnteredCodeLoop
 codeCorrect:
 	; reset the entered code
@@ -473,6 +492,7 @@ resetEnteredCode:
 	return
 
 incrementCodeCounter:
+	; increment the value of the code counter
 	incf	codeCounter, A
 	return	
 	
@@ -497,7 +517,9 @@ resetAttemptCounter:
 ; timer-related code
 resetTimer:
 	; the value that the timer is reset to depends on what mode the 
-	; program is currently in.  So first we check the mode
+	; program is currently in, because different modes need timers of
+	; different durations.  So first we check the mode, and branch
+	; accordingly
 	movlw	0x00
 	cpfsgt	mode, A
 	bra	resetTimerMode0
@@ -509,12 +531,15 @@ resetTimer:
 	bra	resetTimerMode2
 	bra	resetTimerMode3
 resetTimerMode0:
+	; For mode 0, the timer is reset to 10FFFF.  From here it will count
+	; down when required.  The least significant byte is assigned first.
 	movlw	0xFF
 	movwf	timer+2, A
 	movlw	0xFF
 	movwf	timer+1, A
 	movlw	0x10
 	movwf	timer, A
+	; branch to the exit
 	bra	resetTimerExit
 resetTimerMode1:
 	movlw	0xFF
@@ -541,8 +566,8 @@ resetTimerMode3:
 	movwf	timer, A
 	bra	resetTimerExit
 resetTimerExit:
-	; the timerFinished boolean flag must be reset to 0 to indicate that
-	; the timer has not finished
+	; In all cases, the timerFinished boolean flag must be reset to 0 to 
+	; indicate that the timer has not finished.
 	movlw	0x00
 	movwf	timerFinished, A
 	return
@@ -558,6 +583,7 @@ decrementTimer:
 	; now check if the timer has reached 0
 	movlw	0x00
 	cpfseq	timer, A
+	; if the timer has not reached 0, return
 	return
 	cpfseq	timer+1, A
 	return
@@ -577,15 +603,21 @@ setNewCode:
 	call	resetFSRs
 	movlw	codeLength 
 setNewCodeLoop:
+	; loop over each digit in the code
+	; Each digit of inputKey must be copied into storedKey
 	movff	POSTINC0, POSTINC1
 	call	incrementCodeCounter
 	cpfseq	codeCounter, A
 	bra	setNewCodeLoop
 setNewCodeExit:
+	; Write the new code to EEPROM so that it can be used after the device
+	; has been restarted.
 	call	writeEEPROM
+	; Display confirmation of setting of code to user
 	movlw	newCodeSetScreen
 	call	updateLCD
 	call	resetEnteredCode
+	; switch to mode 0, lock and go to mainloop
 	call	switchMode0
 	call	lock
 	goto	mainLoop
@@ -596,6 +628,7 @@ resetFSRs:
 	return
 
 resetStoredCode:
+	; This resets storedKey to 0000.
 	movlw	0x00
 	movwf	storedKey, A
 	movwf	storedKey+1, A
@@ -693,20 +726,23 @@ checkForKeyPressMode1Alarm:
 	bra	checkForKeyPressMode1AlarmTurnOn
 	bra	checkForKeyPressMode1AlarmTurnOff
 checkForKeyPressMode1AlarmTurnOn:
+	; turn the alarm on
 	movlw	0xFF
 	movwf	alarmFlag, A
+	; provide user feedback via LCD
 	movlw	alarmOnScreen
 	call	updateLCD
+	; short delay
 	call	delay16RepeaterHalf
-	;call	delay8
 	bra	checkForKeyPressBlockInput
 checkForKeyPressMode1AlarmTurnOff:
+	; turn the alarm off
 	movlw	0x00
 	movwf	alarmFlag, A
+	; notify user via LCD
 	movlw	alarmOffScreen
 	call	updateLCD
 	call	delay16RepeaterHalf
-	;call	delay8
 	bra	checkForKeyPressBlockInput
 checkForKeyPressMode2:
 	movf	newKey, W, A
@@ -722,10 +758,14 @@ checkForKeyPressMode2:
 	call	resetTimer
 	bra	checkForKeyPressBlockInput
 checkForKeyPressAllowInput:
+	; This section sets the acceptInput variable so that the next key press
+	; is allowed
 	movlw	0xFF
 	movwf	acceptInput, A
 	bra	checkForKeyPressExit
 checkForKeyPressBlockInput:
+	; this section sets acceptInput such that the next key press is not
+	; allowed as input.
 	clrf	acceptInput, A
 	bra	checkForKeyPressExit
 checkForKeyPressExit:	
@@ -768,6 +808,8 @@ selectOptionScreen:
 	; movf	timer, W, A
 	; The timer counts down.  Using the current value of the timer,
 	; we decide what the screen should display based on the timer.
+	; The third bit of the most significant byte of the timer has the 
+	; appropriate frequency, so we branch based on its value.
 	btfss	timer, 3, A
 	bra	selectOptionScreenA
 selectOptionScreenC:
@@ -809,6 +851,7 @@ delay16RepeaterLoop:
 
 	
 delay16:
+	; A 16 bit delay, initially set to FFFF.
 	movlw	0xFF ;high(0xFFFF)
 	movwf	delay16Counter, A
 	movlw	0xFF ;low(0xFFFF)
@@ -822,10 +865,13 @@ delay16Loop:
 	return
 	
 delay8:
+	; An 8-bit delay, initially set to FFh.  The counter for this delay is
+	; stored in the W register.
 	movlw	0xFF
 	movwf	delay16Counter+1, A
 	movlw	0x00
 delay8Loop:
+	; decrement through the 8 bits until W = 00h.
 	decf	delay16Counter+1, A
 	cpfseq	delay16Counter+1, A
 	bra	delay8Loop
